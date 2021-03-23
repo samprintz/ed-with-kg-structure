@@ -3,13 +3,21 @@ import logging
 
 _path = os.path.dirname(__file__)
 
+_fast_mode = 2
+
 
 class WikidataItems:
-    _filename = os.path.join(_path, '../../data/wikidata_items.csv')
+    if _fast_mode == 0:
+        _filename = os.path.join(_path, '../../data/wikidata_items.csv')
+    else:
+        _filename = os.path.join(_path, '../../data/wikidata_items.sample.csv')
     _logger = logging.getLogger(__name__)
 
     def __init__(self):
-        self._logger.warning('Loading items')
+        if _fast_mode == 0:
+            self._logger.warning('Loading items')
+        else:
+            self._logger.warning('Loading items (sample)')
         self._items_dict = {}
         self._reverse_dict = {}
         with open(self._filename, encoding='utf8') as f:
