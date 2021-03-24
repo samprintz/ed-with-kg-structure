@@ -1,7 +1,9 @@
 import sys
 import tensorflow as tf
 import numpy as np
-from tensorflow.contrib import rnn
+from tensorflow.keras.layers import StackedRNNCells, GRUCell
+
+tf.compat.v1.disable_eager_execution()
 
 TINY = 1e-6
 ONE = tf.constant(1.)
@@ -30,118 +32,115 @@ class GCN_QA(object):
     _stack_dimension = 2
 
     def __init__(self, dropout=1.0):
-        tf.reset_default_graph()
-        with tf.variable_scope(NAMESPACE):
-            config = tf.ConfigProto(allow_soft_placement=True)
-            self.sess = tf.Session(config=config)
+        tf.compat.v1.reset_default_graph()
+        with tf.compat.v1.variable_scope(NAMESPACE):
+            config = tf.compat.v1.ConfigProto(allow_soft_placement=True)
+            config.gpu_options.allow_growth = True
+            self.sess = tf.compat.v1.Session(config=config)
 
             # Input variables
-            self.node_X_fw = tf.placeholder(tf.float32, shape=(None, None, self._nodes_vocab_size), name='node_X_fw')
-            self.node_X_bw = tf.placeholder(tf.float32, shape=(None, None, self._nodes_vocab_size), name='node_X_bw')
-            self.question_vectors_fw = tf.placeholder(tf.float32, shape=(None, None, self._question_vocab_size),
-                                                      name='question_vectors_inp_fw')
-            self.question_vectors_bw = tf.placeholder(tf.float32, shape=(None, None, self._question_vocab_size),
-                                                      name='question_vectors_inp_nw')
-            self.question_mask = tf.placeholder(tf.float32, shape=(None, None, self._mask_size),
-                                                name='question_mask')
+            self.node_X_fw = tf.compat.v1.placeholder(shape=(None, None, self._nodes_vocab_size),
+                    name='node_X_fw', dtype=tf.float32)
+            self.node_X_bw = tf.compat.v1.placeholder(shape=(None, None, self._nodes_vocab_size),
+                    name='node_X_bw', dtype=tf.float32)
+            self.question_vectors_fw = tf.compat.v1.placeholder(shape=(None, None, self._question_vocab_size),
+                    name='question_vectors_inp_fw', dtype=tf.float32)
+            self.question_vectors_bw = tf.compat.v1.placeholder(shape=(None, None, self._question_vocab_size),
+                    name='question_vectors_inp_nw', dtype=tf.float32)
+            self.question_mask = tf.compat.v1.placeholder(shape=(None, None, self._mask_size),
+                    name='question_mask', dtype=tf.float32)
 
             # The question is pre-processed by a bi-GRU
-            self.Wq = tf.Variable(tf.random_uniform([self._question_vocab_size,
+            self.Wq = tf.Variable(tf.random.uniform([self._question_vocab_size,
                                                      self._word_proj_size_for_rnn], -_rw, _rw))
-            self.bq = tf.Variable(tf.random_uniform([self._word_proj_size_for_rnn], -_rw, _rw))
+            self.bq = tf.Variable(tf.random.uniform([self._word_proj_size_for_rnn], -_rw, _rw))
             self.internal_projection = lambda x: tf.nn.relu(tf.matmul(x, self.Wq) + self.bq)
             self.question_int_fw = tf.map_fn(self.internal_projection, self.question_vectors_fw)
             self.question_int_bw = tf.map_fn(self.internal_projection, self.question_vectors_bw)
 
-            self.rnn_cell_fw = rnn.MultiRNNCell([rnn.GRUCell(self._memory_dim) for _ in range(self._stack_dimension)],
-                                                state_is_tuple=True)
-            self.rnn_cell_bw = rnn.MultiRNNCell([rnn.GRUCell(self._memory_dim) for _ in range(self._stack_dimension)],
-                                                state_is_tuple=True)
-            with tf.variable_scope('fw'):
-                output_fw, state_fw = tf.nn.dynamic_rnn(self.rnn_cell_fw, self.question_int_fw, time_major=True,
+            self.rnn_cell_fw = StackedRNNCells([GRUCell(self._memory_dim) for _ in range(self._stack_dimension)])
+            self.rnn_cell_bw = StackedRNNCells([GRUCell(self._memory_dim) for _ in range(self._stack_dimension)])
+            with tf.compat.v1.variable_scope('fw'):
+                output_fw, state_fw = tf.compat.v1.nn.dynamic_rnn(self.rnn_cell_fw, self.question_int_fw, time_major=True,
                                                         dtype=tf.float32)
-            with tf.variable_scope('bw'):
-                output_bw, state_bw = tf.nn.dynamic_rnn(self.rnn_cell_bw, self.question_int_bw, time_major=True,
+            with tf.compat.v1.variable_scope('bw'):
+                output_bw, state_bw = tf.compat.v1.nn.dynamic_rnn(self.rnn_cell_bw, self.question_int_bw, time_major=True,
                                                         dtype=tf.float32)
 
             self.states = tf.concat(values=[output_fw, tf.reverse(output_bw, [0])], axis=2)
             self.question_vector_pre = tf.reduce_mean(tf.multiply(self.question_mask, self.states), axis=0)
             self.Wqa = tf.Variable(
-                tf.random_uniform([2 * self._memory_dim, self._question_vector_size], -_rw, _rw),
+                tf.random.uniform([2 * self._memory_dim, self._question_vector_size], -_rw, _rw),
                 name='Wqa')
-            self.bqa = tf.Variable(tf.random_uniform([self._question_vector_size], -_rw, _rw), name='bqa')
+            self.bqa = tf.Variable(tf.random.uniform([self._question_vector_size], -_rw, _rw), name='bqa')
             self.question_vector = tf.nn.relu(tf.matmul(self.question_vector_pre, self.Wqa) + self.bqa)
 
             # bi-LSTM of triplets part
-            self.Wtri = tf.Variable(tf.random_uniform([self._nodes_vocab_size,
+            self.Wtri = tf.Variable(tf.random.uniform([self._nodes_vocab_size,
                                                        self._word_proj_size_for_rnn], -_rw, _rw))
-            self.btri = tf.Variable(tf.random_uniform([self._word_proj_size_for_rnn], -_rw, _rw))
+            self.btri = tf.Variable(tf.random.uniform([self._word_proj_size_for_rnn], -_rw, _rw))
             self.internal_projection = lambda x: tf.nn.relu(tf.matmul(x, self.Wtri) + self.btri)
             self.node_int_fw = tf.map_fn(self.internal_projection, self.node_X_fw)
             self.node_int_bw = tf.map_fn(self.internal_projection, self.node_X_bw)
 
-            self.rnn_cell_fw_tri = rnn.MultiRNNCell(
-                [rnn.GRUCell(self._memory_dim) for _ in range(self._stack_dimension)],
-                state_is_tuple=True)
-            self.rnn_cell_bw_tri = rnn.MultiRNNCell(
-                [rnn.GRUCell(self._memory_dim) for _ in range(self._stack_dimension)],
-                state_is_tuple=True)
-            with tf.variable_scope('fw_tri'):
-                output_fw_tri, _ = tf.nn.dynamic_rnn(self.rnn_cell_fw_tri, self.node_int_fw, time_major=True,
+            self.rnn_cell_fw_tri = StackedRNNCells([GRUCell(self._memory_dim) for _ in range(self._stack_dimension)])
+            self.rnn_cell_bw_tri = StackedRNNCells([GRUCell(self._memory_dim) for _ in range(self._stack_dimension)])
+            with tf.compat.v1.variable_scope('fw_tri'):
+                output_fw_tri, _ = tf.compat.v1.nn.dynamic_rnn(self.rnn_cell_fw_tri, self.node_int_fw, time_major=True,
                                                      dtype=tf.float32)
-            with tf.variable_scope('bw_tri'):
-                output_bw_tri, _ = tf.nn.dynamic_rnn(self.rnn_cell_bw_tri, self.node_int_bw, time_major=True,
+            with tf.compat.v1.variable_scope('bw_tri'):
+                output_bw_tri, _ = tf.compat.v1.nn.dynamic_rnn(self.rnn_cell_bw_tri, self.node_int_bw, time_major=True,
                                                      dtype=tf.float32)
 
             self.states_tri = tf.concat(values=[output_fw_tri[-1], output_bw_tri[-1]], axis=1)
             self.Wtn = tf.Variable(
-                tf.random_uniform([2 * self._memory_dim, self._question_vector_size], -_rw, _rw),
+                tf.random.uniform([2 * self._memory_dim, self._question_vector_size], -_rw, _rw),
                 name='Wtn')
-            self.btn = tf.Variable(tf.random_uniform([self._question_vector_size], -_rw, _rw), name='btn')
+            self.btn = tf.Variable(tf.random.uniform([self._question_vector_size], -_rw, _rw), name='btn')
             self.first_node = tf.nn.relu(tf.matmul(self.states_tri, self.Wtn) + self.btn)
 
             self.concatenated = tf.concat(values=[self.question_vector, self.first_node], axis=1)
 
             # Final feedforward layers
             self.Ws1 = tf.Variable(
-                tf.random_uniform([self._question_vector_size
+                tf.random.uniform([self._question_vector_size
                                    + self._question_vector_size,
                                    self._hidden_layer2_size], -_rw, _rw),
                 name='Ws1')
-            self.bs1 = tf.Variable(tf.random_uniform([self._hidden_layer2_size], -_rw, _rw), name='bs1')
+            self.bs1 = tf.Variable(tf.random.uniform([self._hidden_layer2_size], -_rw, _rw), name='bs1')
             self.first_hidden = tf.nn.relu(tf.matmul(self.concatenated, self.Ws1) + self.bs1)
-            self.first_hidden_dropout = tf.nn.dropout(self.first_hidden, dropout)
+            self.first_hidden_dropout = tf.nn.dropout(self.first_hidden, 1 - (dropout))
 
             self.Wf = tf.Variable(
-                tf.random_uniform([self._hidden_layer2_size, self._output_size], -_rw,
+                tf.random.uniform([self._hidden_layer2_size, self._output_size], -_rw,
                                   _rw),
                 name='Wf')
-            self.bf = tf.Variable(tf.random_uniform([self._output_size], -_rw, _rw), name='bf')
+            self.bf = tf.Variable(tf.random.uniform([self._output_size], -_rw, _rw), name='bf')
             self.outputs = tf.nn.softmax(tf.matmul(self.first_hidden_dropout, self.Wf) + self.bf)
 
             # Loss function and training
-            self.y_ = tf.placeholder(tf.float32, shape=(None, self._output_size), name='y_')
+            self.y_ = tf.compat.v1.placeholder(shape=(None, self._output_size), name='y_', dtype=tf.float32)
             self.outputs2 = tf.squeeze(self.outputs)
             self.y2_ = tf.squeeze(self.y_)
             self.one = tf.ones_like(self.outputs)
             self.tiny = self.one * TINY
             self.cross_entropy = (tf.reduce_mean(
-                -tf.reduce_sum(self.y_ * tf.log(self.outputs + self.tiny) * _weight_for_positive_matches
-                               + (self.one - self.y_) * tf.log(
+                -tf.reduce_sum(self.y_ * tf.math.log(self.outputs + self.tiny) * _weight_for_positive_matches
+                               + (self.one - self.y_) * tf.math.log(
                     self.one - self.outputs + self.tiny))
             ))
 
         # Clipping the gradient
-        optimizer = tf.train.AdamOptimizer(1e-4)
+        optimizer = tf.compat.v1.train.AdamOptimizer(1e-4)
         gvs = optimizer.compute_gradients(self.cross_entropy)
         capped_gvs = [(tf.clip_by_value(grad, -1., 1.), var) for grad, var in gvs if var.name.find(NAMESPACE) != -1]
         self.train_step = optimizer.apply_gradients(capped_gvs)
-        self.sess.run(tf.global_variables_initializer())
+        self.sess.run(tf.compat.v1.global_variables_initializer())
 
         # Adding the summaries
-        tf.summary.scalar('cross_entropy', self.cross_entropy)
-        self.merged = tf.summary.merge_all()
-        self.train_writer = tf.summary.FileWriter('./train', self.sess.graph)
+        tf.compat.v1.summary.scalar('cross_entropy', self.cross_entropy)
+        self.merged = tf.compat.v1.summary.merge_all()
+        self.train_writer = tf.compat.v1.summary.FileWriter('./train', self.sess.graph)
 
     def __train(self, node_X, item_vector, question_vectors, question_mask, y):
         node_X_fw = np.array(node_X)
