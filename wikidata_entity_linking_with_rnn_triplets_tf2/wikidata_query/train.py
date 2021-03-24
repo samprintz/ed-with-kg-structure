@@ -10,6 +10,14 @@ _path = os.path.dirname(__file__)
 _saving_dir = os.path.join(_path, '../data/')
 _bucket_size = 10
 _minimum_trace = 10
+_fast_mode = 3
+
+if _fast_mode == 0:
+    _dataset_path = os.path.join(_path, '../../dataset/wikidata-disambig-train.json')
+elif _fast_mode == 1:
+    _dataset_path = os.path.join(_path, '../../dataset/wikidata-disambig-train.medium.json')
+else:
+    _dataset_path = os.path.join(_path, '../../dataset/wikidata-disambig-train.sample.json')
 
 
 def get_answers_and_questions_from_json(filename):
@@ -72,7 +80,7 @@ def train(data, model, saving_dir, name_prefix, epochs=20, bucket_size=10, trace
 
 
 if __name__ == '__main__':
-    with open(os.path.join(_path, '../../dataset/wikidata-disambig-train.json')) as f:
+    with open(_dataset_path, encoding='utf8') as f:
         json_data = json.load(f)
     data = get_json_data(json_data)
     nn_model = GCN_QA(dropout=1.0)
