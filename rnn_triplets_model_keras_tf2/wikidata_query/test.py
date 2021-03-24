@@ -9,6 +9,14 @@ from wikidata_query.utils import get_words, infer_vector_from_word
 _path = os.path.dirname(__file__)
 _saving_dir = os.path.join(_path, '../data/')
 _bucket_size = 10
+_fast_mode = 3
+
+if _fast_mode == 0:
+    _dataset_path = os.path.join(_path, '../../dataset/wikidata-disambig-dev.json')
+elif _fast_mode == 1:
+    _dataset_path = os.path.join(_path, '../../dataset/wikidata-disambig-dev.medium.json')
+else:
+    _dataset_path = os.path.join(_path, '../../dataset/wikidata-disambig-dev.sample.json')
 
 
 def get_answers_and_questions_from_json(filename):
@@ -74,13 +82,14 @@ def test(data, model):
     false_positives = 0
     true_negatives = 0
     false_negatives = 0
+
     for item in data:
         expected = item['answer']
         node_vectors = item['graph']['vectors']
         item_vector = item['item_vector']
         question_vectors = item['question_vectors']
         question_mask = item['question_mask']
-#        try:
+
         prediction = model.predict(node_vectors, item_vector, question_vectors, question_mask)
         if prediction == expected and expected == _is_relevant:
             true_positives += 1
@@ -90,8 +99,7 @@ def test(data, model):
             false_negatives += 1
         if prediction != expected and expected == _is_not_relevant:
             false_positives += 1
-#        except Exception as e:
-#            print('Exception caught during training: ' + str(e))
+
     try:
         precision = true_positives / (true_positives + false_positives)
         recall = true_positives / (true_positives + false_negatives)
@@ -104,10 +112,8 @@ def test(data, model):
 
 
 if __name__ == '__main__':
-    with open(os.path.join(_path, '../../dataset/wikidata-disambig-dev.json')) as f:
+    with open(_dataset_path) as f:
         json_data = json.load(f)
     data = get_json_data(json_data)
-    for i in range(0, 12, 1):
-        print(i)
-        nn_models = GCN_QA.load(os.path.join(_path, '../data/qa-' + str(i) + '.tf'))
-        test(data, nn_models)
+    nn_models = GCN_QA.load(os.path.join(_path, '../data/qa.tf'))
+    test(data, nn_models)

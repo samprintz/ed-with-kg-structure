@@ -51,7 +51,7 @@ _is_relevant = [.0, 1.]
 _is_not_relevant = [1., 0.]
 
 
-def train(data, model, saving_dir, name_prefix, epochs=20, bucket_size=10, trace_every=1):
+def train(data, model, saving_dir, name_prefix, epochs):
     import random
     import sys
 
@@ -65,7 +65,12 @@ def train(data, model, saving_dir, name_prefix, epochs=20, bucket_size=10, trace
         Xy.append((node_vectors, item_vector, question_vectors, question_mask, y))
 
     Xy = np.array(Xy)
-    model.train(Xy, 5)
+    model.train(Xy, epochs)
+
+    # Save model (for testing)
+    save_filename = saving_dir + name_prefix + '.tf'
+    print('Saving into ' + save_filename)
+    model.save(save_filename)
 
 
 if __name__ == '__main__':
@@ -77,7 +82,5 @@ if __name__ == '__main__':
           nn_model,
           _saving_dir,
           name_prefix='qa',
-          epochs=60,
-          bucket_size=10,
-          trace_every=1,
+          epochs=2
           )
