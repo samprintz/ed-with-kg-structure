@@ -55,28 +55,17 @@ def train(data, model, saving_dir, name_prefix, epochs=20, bucket_size=10, trace
     import random
     import sys
 
-    buckets = bin_data_into_buckets(data, bucket_size)
-    for i in range(epochs):
-        random_buckets = sorted(buckets, key=lambda x: random.random())
-        sys.stderr.write('--------- Epoch ' + str(i) + ' ---------\n')
-        for bucket in random_buckets:
-            graph_bucket = []
-            try:
-                for item in bucket:
-                    node_vectors = item['graph']['vectors']
-                    y = item['answer']
-                    item_vector = item['item_vector']
-                    question_vectors = item['question_vectors']
-                    question_mask = item['question_mask']
-                    graph_bucket.append((node_vectors, item_vector, question_vectors, question_mask, y))
-                if len(graph_bucket) > 0:
-                    model.train(graph_bucket, 1)
-            except Exception as e:
-                print('Exception caught during training: ' + str(e))
-        if i % trace_every == 0:
-            save_filename = saving_dir + name_prefix + '-' + str(i) + '.tf'
-            sys.stderr.write('Saving into ' + save_filename + '\n')
-            model.save(save_filename)
+    Xy = []
+    for item in data:
+        node_vectors = item['graph']['vectors']
+        y = item['answer']
+        item_vector = item['item_vector']
+        question_vectors = item['question_vectors']
+        question_mask = item['question_mask']
+        Xy.append((node_vectors, item_vector, question_vectors, question_mask, y))
+
+    Xy = np.array(Xy)
+    model.train(Xy, 5)
 
 
 if __name__ == '__main__':

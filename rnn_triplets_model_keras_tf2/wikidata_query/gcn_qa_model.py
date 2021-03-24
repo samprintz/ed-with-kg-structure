@@ -2,8 +2,13 @@ import sys
 import tensorflow as tf
 import numpy as np
 from tensorflow.keras.layers import StackedRNNCells, GRUCell
+from tensorflow.keras.layers import Input, Dense, LSTM, Bidirectional, Activation
 
 tf.compat.v1.disable_eager_execution()
+
+gpu_devices = tf.config.experimental.list_physical_devices('GPU')
+for gpu in gpu_devices:
+    tf.config.experimental.set_memory_growth(gpu, True)
 
 TINY = 1e-6
 ONE = tf.constant(1.)
@@ -142,41 +147,61 @@ class GCN_QA(object):
         self.merged = tf.compat.v1.summary.merge_all()
         self.train_writer = tf.compat.v1.summary.FileWriter('./train', self.sess.graph)
 
-    def __train(self, node_X, item_vector, question_vectors, question_mask, y):
-        node_X_fw = np.array(node_X)
-        node_X_fw = np.transpose(node_X_fw, (1, 0, 2))
-        node_X_bw = node_X_fw[::-1, :, :]
+    def __train(self, node_X, item_vector, question_vectors, question_mask, y, epochs):
+        # Working:
+        """
+        # Originally:
+        #question_vectors = np.transpose(question_vectors, (1, 0, 2))
+        # and then like in https://stackoverflow.com/a/41595178
+        #question_vectors = np.expand_dims(question_vectors, axis=0)
 
-        question_vectors = np.array(question_vectors)
-        question_vectors_fw = np.transpose(question_vectors, (1, 0, 2))
-        question_vectors_bw = question_vectors_fw[::-1, :, :]
+        #inputs = tf.keras.layers.Input(shape=(3,))
+        #inputs = tf.keras.layers.Input(shape=(None,None,300))
+        inputs = tf.keras.layers.Input(shape=(None,300))
+        #outputs = tf.keras.layers.Dense(2)(inputs)
+        outputs = tf.keras.layers.LSTM(8)(inputs)
+        outputs = tf.keras.layers.Dense(2)(outputs)
+        """
 
-        question_mask = np.array(question_mask)
-        question_mask = np.transpose(question_mask, (1, 0, 2))
+        # Working:
+        """
+        inputs = Input(shape=(None,300))
+        outputs = Bidirectional(LSTM(8, return_sequences=True))(inputs)
+        outputs = Bidirectional(LSTM(8))(outputs)
+        outputs = Dense(2)(outputs)
+        outputs = Activation('softmax')(outputs)
+        """
 
-        y = np.array(y)
+        # Working:
+        forward_lstm = LSTM(8, return_sequences=True)
+        backward_lstm = LSTM(8, return_sequences=True, go_backwards=True)
 
-        feed_dict = {}
-        feed_dict.update({self.node_X_fw: node_X_fw})
-        feed_dict.update({self.node_X_bw: node_X_bw})
-        feed_dict.update({self.question_vectors_fw: question_vectors_fw})
-        feed_dict.update({self.question_vectors_bw: question_vectors_bw})
-        feed_dict.update({self.question_mask: question_mask})
-        feed_dict.update({self.y_: y})
+        inputs = Input(shape=(None,300))
+        outputs = Bidirectional(layer=forward_lstm, backward_layer=backward_lstm)(inputs)
+        outputs = Bidirectional(LSTM(8))(outputs)
+        outputs = Dense(2)(outputs)
+        outputs = Activation('softmax')(outputs)
 
-        loss, _, summary, outputs2, y2 = self.sess.run(
-            [self.cross_entropy, self.train_step, self.merged, self.outputs2, self.y2_], feed_dict)
-        return loss, summary
+
+        # Compile and fit model
+        model = tf.keras.models.Model(inputs=inputs, outputs=outputs)
+        model.compile(optimizer="Adam", loss="mse", metrics=["mae"])
+        model.metrics_names
+        #x = np.random.random((2, 3))
+        #y = np.random.randint(0, 2, (2, 2))
+        x = question_vectors
+        y = y
+
+        model.fit(x, y, epochs=epochs)
 
     def train(self, data, epochs=20):
-        for epoch in range(epochs):
-            loss, _ = self.__train([data[i][0] for i in range(len(data))],
-                                   [data[i][1] for i in range(len(data))],
-                                   [data[i][2] for i in range(len(data))],
-                                   [data[i][3] for i in range(len(data))],
-                                   [data[i][4] for i in range(len(data))])
-            print(loss)
-            sys.stdout.flush()
+        #node_X = np.stack(data[:,0])
+        #item_vector = np.stack(data[:,1])
+        question_vectors = np.stack(data[:,2])
+        question_mask = np.stack(data[:,3])
+        y = np.stack(data[:,4])
+
+        self.__train(None, None, question_vectors, question_mask, y, epochs)
 
     def __predict(self, node_X, item_vector, question_vectors, question_mask):
         node_X_fw = np.array(node_X)
