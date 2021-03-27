@@ -189,9 +189,9 @@ def create_text_item_graph_dict(text, item, wikidata_id, max_sentence_length):
     text_item_graph_dict['text'] = text
     text_item_graph_dict['item'] = item
     text_item_graph_dict['wikidata_id'] = wikidata_id
-    text_item_graph_dict['graph'] = get_graph_from_wikidata_id(wikidata_id, item)
+    text_item_graph_dict['graph'] = get_graph_from_wikidata_id(wikidata_id, item) # list of triples represented as (900,) vectors
     # text_item_graph_dict['item_vector'] = infer_vector_from_doc(_model, item)
-    text_item_graph_dict['item_vector'] = infer_vector_from_vector_nodes(text_item_graph_dict['graph']['vectors'])
+    text_item_graph_dict['item_vector'] = infer_vector_from_vector_nodes(text_item_graph_dict['graph']['vectors']) # (300,) zeros
     text_item_graph_dict['question_vectors'] = convert_text_into_vector_sequence(_model, text, max_sentence_length)
     text_item_graph_dict['question_mask'] = get_item_mask_for_words(text, item, max_sentence_length)
     return text_item_graph_dict

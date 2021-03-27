@@ -4,7 +4,7 @@ import numpy as np
 
 from wikidata_query.gcn_qa_model import GCN_QA
 from wikidata_query.read_data import get_json_data
-from wikidata_query.utils import bin_data_into_buckets, get_words, infer_vector_from_word
+from wikidata_query.utils import get_words, infer_vector_from_word
 
 _path = os.path.dirname(__file__)
 _saving_dir = os.path.join(_path, '../data/')
@@ -51,10 +51,7 @@ _is_relevant = [.0, 1.]
 _is_not_relevant = [1., 0.]
 
 
-def train(data, model, saving_dir, name_prefix, epochs):
-    import random
-    import sys
-
+def train(data, model, saving_dir, name_prefix, epochs, batch_size):
     Xy = []
     for item in data:
         node_vectors = item['graph']['vectors']
@@ -65,7 +62,7 @@ def train(data, model, saving_dir, name_prefix, epochs):
         Xy.append((node_vectors, item_vector, question_vectors, question_mask, y))
 
     Xy = np.array(Xy)
-    model.train(Xy, epochs)
+    model.train(Xy, epochs, batch_size)
 
     # Save model (for testing)
     save_filename = saving_dir + name_prefix + '.tf'
@@ -82,5 +79,6 @@ if __name__ == '__main__':
           nn_model,
           _saving_dir,
           name_prefix='qa',
-          epochs=2
+          epochs=10,
+          batch_size=16
           )
