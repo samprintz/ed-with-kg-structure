@@ -54,12 +54,13 @@ _is_not_relevant = [1., 0.]
 def train(data, model, saving_dir, name_prefix, epochs, batch_size):
     Xy = []
     for item in data:
+        text = item['text']
         node_vectors = item['graph']['vectors']
         y = item['answer']
         item_vector = item['item_vector']
         question_vectors = item['question_vectors']
         question_mask = item['question_mask']
-        Xy.append((node_vectors, item_vector, question_vectors, question_mask, y))
+        Xy.append((text, node_vectors, item_vector, question_vectors, question_mask, y))
 
     Xy = np.array(Xy)
     model.train(Xy, epochs, batch_size)

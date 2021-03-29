@@ -82,15 +82,17 @@ def test(data, model):
     false_positives = 0
     true_negatives = 0
     false_negatives = 0
+    total = 0
 
     for item in data:
+        text = item['text']
         expected = item['answer']
         node_vectors = item['graph']['vectors']
         item_vector = item['item_vector']
         question_vectors = item['question_vectors']
         question_mask = item['question_mask']
 
-        prediction = model.predict(node_vectors, item_vector, question_vectors, question_mask)
+        prediction = model.predict(text, node_vectors, item_vector, question_vectors, question_mask)
         if prediction == expected and expected == _is_relevant:
             true_positives += 1
         if prediction == expected and expected == _is_not_relevant:
@@ -99,6 +101,9 @@ def test(data, model):
             false_negatives += 1
         if prediction != expected and expected == _is_not_relevant:
             false_positives += 1
+
+        total += 1
+        print(f'{total}/{len(data)}')
 
     try:
         precision = true_positives / (true_positives + false_positives)
