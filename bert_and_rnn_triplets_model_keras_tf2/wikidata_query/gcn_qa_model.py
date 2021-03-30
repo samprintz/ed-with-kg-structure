@@ -17,6 +17,7 @@ class GCN_QA(object):
     _question_vocab_size = 300
     _nodes_vector_size = 150
     _question_vector_size = 150
+    _bert_embedding_size = 768
     _types_size = 3
     _mask_size = 200
     _types_proj_size = 5
@@ -35,32 +36,34 @@ class GCN_QA(object):
     def __init__(self, dropout=1.0):
         tf.compat.v1.reset_default_graph()
 
-    def __train(self, sentences, node_X, item_vector, question_vectors, question_mask, y, epochs, batch_size):
+    def __train(self, sentences, node_X, item_vector, question_vectors, sf_mask, y, epochs, batch_size):
+        # Tokenize
+        tokenizer = DistilBertTokenizer.from_pretrained(self._distil_bert, do_lower_case=True, add_special_tokens=True,
+                max_length=self._max_sentence_length, pad_to_max_length=True)
+        questions, attention_masks, segments = self.__tokenize(sentences, tokenizer, self._max_sentence_length)
+
         # Part I: Question text sequence -> BERT
         config = DistilBertConfig(dropout=0.2, attention_dropout=0.2)
         config.output_hidden_states = False
         transformer_model = TFDistilBertModel.from_pretrained(self._distil_bert, config=config)
 
-        tokenizer = DistilBertTokenizer.from_pretrained(self._distil_bert, do_lower_case=True, add_special_tokens=True,
-                max_length=self._max_sentence_length, pad_to_max_length=True)
-        input_texts, input_masks, input_segments = self.__tokenize(sentences, tokenizer, self._max_sentence_length)
+        input_question = Input(shape=(self._max_sentence_length,), dtype='int32')
+        input_attention_mask = Input(shape=(self._max_sentence_length,), dtype='int32')
+        input_sf_mask = Input(shape=(self._max_sentence_length, self._bert_embedding_size), dtype='float32')
 
-        question_inputs = Input(shape=(self._max_sentence_length,), dtype='int32')
-        question_masks = tf.keras.layers.Input(shape=(self._max_sentence_length,), dtype='int32')
-
-        embedding_layer = transformer_model.distilbert(question_inputs, attention_mask=question_masks)[0]
-        cls_token = embedding_layer[:,0,:]
-        question_outputs = BatchNormalization()(cls_token)
-        question_outputs = Dense(192, activation='relu')(question_outputs)
-        question_outputs = Dropout(0.2)(question_outputs)
-        question_outputs = Dense(6, activation='softmax')(question_outputs)
+        embedding_layer = transformer_model.distilbert(input_question, attention_mask=input_attention_mask)[0]
+        #cls_token = embedding_layer[:,0,:]
+        sf_token = tf.math.reduce_mean(tf.math.multiply(embedding_layer, input_sf_mask), axis=1)
+        question_outputs = BatchNormalization()(sf_token)
+        question_outputs = Dense(self._question_vector_size)(question_outputs)
+        question_outputs = Activation('relu')(question_outputs)
 
         # Part II: Entity graph node (as text) -> Bi-LSTM
         fw_lstm = LSTM(self._memory_dim)
         bw_lstm = LSTM(self._memory_dim, go_backwards=True)
 
-        nodes_inputs = Input(shape=(None, self._nodes_vocab_size))
-        nodes_outputs = Bidirectional(layer=fw_lstm, backward_layer=bw_lstm)(nodes_inputs)
+        input_nodes = Input(shape=(None, self._nodes_vocab_size))
+        nodes_outputs = Bidirectional(layer=fw_lstm, backward_layer=bw_lstm)(input_nodes)
         nodes_outputs = Dense(self._nodes_vector_size)(nodes_outputs)
         nodes_outputs = Activation('relu')(nodes_outputs)
 
@@ -69,16 +72,16 @@ class GCN_QA(object):
         concatenated = Concatenate(axis=1)([question_outputs, nodes_outputs])
         mlp_outputs = Dense(self._hidden_layer2_size)(concatenated)
         mlp_outputs = Activation('relu')(mlp_outputs)
-        mlp_outputs = Dropout(0.0)(mlp_outputs)
+        mlp_outputs = Dropout(0.2)(mlp_outputs)
         mlp_outputs = Dense(self._output_size)(mlp_outputs) # 2-dim. output
         mlp_outputs = Activation('softmax')(mlp_outputs)
 
         # Compile and fit the model
-        self._model = tf.keras.models.Model(inputs=[question_inputs, question_masks, nodes_inputs], outputs=mlp_outputs)
+        self._model = tf.keras.models.Model(inputs=[input_question, input_attention_mask, input_sf_mask, input_nodes], outputs=mlp_outputs)
         self._model.get_layer('distilbert').trainable = False # make BERT layers untrainable
         self._model.compile(optimizer="Adam", loss="binary_crossentropy", metrics=["accuracy"])
         self._model.summary()
-        self._model.fit([input_texts, input_masks, node_X], y, epochs=epochs, batch_size=batch_size)
+        self._model.fit([questions, attention_masks, sf_mask, node_X], y, epochs=epochs, batch_size=batch_size)
 
     def __tokenize(self, sentences, tokenizer, max_length):
         input_ids, input_masks, input_segments = [],[],[]
@@ -97,6 +100,7 @@ class GCN_QA(object):
         item_vector = np.stack(data[:,2])
         question_vectors = np.stack(data[:,3])
         question_mask = np.stack(data[:,4]).astype(np.float32)
+        question_mask = tf.keras.preprocessing.sequence.pad_sequences(question_mask, maxlen=self._max_sentence_length, value=0.0)
         y = np.stack(data[:,5])
 
         self.__train(text, node_X, item_vector, question_vectors, question_mask, y, epochs, batch_size)
