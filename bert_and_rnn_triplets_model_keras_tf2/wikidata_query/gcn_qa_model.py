@@ -77,9 +77,11 @@ class GCN_QA(object):
         mlp_outputs = Activation('softmax')(mlp_outputs)
 
         # Compile and fit the model
+        optimizer = tf.keras.optimizers.Adam(learning_rate=1e-4)
+
         self._model = tf.keras.models.Model(inputs=[input_question, input_attention_mask, input_sf_mask, input_nodes], outputs=mlp_outputs)
         self._model.get_layer('distilbert').trainable = False # make BERT layers untrainable
-        self._model.compile(optimizer="Adam", loss="binary_crossentropy", metrics=["accuracy"])
+        self._model.compile(optimizer=optimizer, loss="binary_crossentropy", metrics=["accuracy"])
         self._model.summary()
         self._model.fit([questions, attention_masks, sf_mask, node_X], y, epochs=epochs, batch_size=batch_size)
 
@@ -87,7 +89,7 @@ class GCN_QA(object):
         input_ids, input_masks, input_segments = [],[],[]
         for sentence in sentences:
             inputs = tokenizer.encode_plus(sentence, add_special_tokens=True, max_length=max_length,
-                    pad_to_max_length=True, return_attention_mask=True, return_token_type_ids=True)
+                    padding='max_length', return_attention_mask=True, return_token_type_ids=True)
             input_ids.append(inputs['input_ids'])
             input_masks.append(inputs['attention_mask'])
             input_segments.append(inputs['token_type_ids'])
@@ -110,7 +112,7 @@ class GCN_QA(object):
                 max_length=self._max_sentence_length, pad_to_max_length=True)
         sentences = [text]
         input_text, input_mask, input_segment = self.__tokenize(sentences, tokenizer, self._max_sentence_length)
-        output = self._model.predict([input_text, input_mask, node_X])
+        output = self._model.predict([input_text, input_mask, question_mask, node_X])
         return output
 
     def __standardize_item(self, item):
@@ -121,6 +123,8 @@ class GCN_QA(object):
     def predict(self, text, node_X, item_vector, question_vectors, question_mask):
         question_vectors = np.expand_dims(question_vectors, axis=0)
         node_X = np.expand_dims(node_X, axis=0)
+        question_mask = np.expand_dims(question_mask, axis=0)
+        question_mask = tf.keras.preprocessing.sequence.pad_sequences(question_mask, maxlen=self._max_sentence_length, value=0.0)
 
         output = self.__predict(text, node_X, item_vector, question_vectors, question_mask)
 

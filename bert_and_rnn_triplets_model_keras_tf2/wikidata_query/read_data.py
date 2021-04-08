@@ -220,7 +220,10 @@ def get_json_data_many_wrong_ids(json_data):
 def get_json_data(json_data):
     max_sentence_length = get_max_sentence_length(json_data)
     data = []
+    print(f'=== Get data for {len(json_data)} samples ===')
+    sample_count = 1
     for json_item in json_data:
+        print(f'Sample {sample_count}/{len(json_data)}')
         try:
             text = json_item['text']
             item = json_item['string']
@@ -236,6 +239,7 @@ def get_json_data(json_data):
             data.append(text_item_graph_dict)
         except Exception as e:
             print(str(e))
+        sample_count += 1
     return data
 
 

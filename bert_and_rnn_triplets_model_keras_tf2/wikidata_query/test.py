@@ -103,7 +103,7 @@ def test(data, model):
             false_positives += 1
 
         total += 1
-        print(f'{total}/{len(data)}')
+        print(f'{total}/{len(data)}', end='\r')
 
     try:
         precision = true_positives / (true_positives + false_positives)

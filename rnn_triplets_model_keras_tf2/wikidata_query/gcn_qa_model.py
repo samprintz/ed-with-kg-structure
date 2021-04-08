@@ -63,8 +63,10 @@ class GCN_QA(object):
         mlp_outputs = Activation('softmax')(mlp_outputs)
 
         # Compile and fit model
+        optimizer = tf.keras.optimizers.Adam(learning_rate=1e-4)
+
         self._model = tf.keras.models.Model(inputs=[question_inputs, nodes_inputs], outputs=mlp_outputs)
-        self._model.compile(optimizer="Adam", loss="binary_crossentropy", metrics=["accuracy"])
+        self._model.compile(optimizer=optimizer, loss="binary_crossentropy", metrics=["accuracy"])
         self._model.fit([question_vectors, node_X], y, epochs=epochs, batch_size=batch_size)
 
     def train(self, data, epochs=20, batch_size=32):

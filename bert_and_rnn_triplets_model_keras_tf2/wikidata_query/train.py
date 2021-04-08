@@ -15,6 +15,8 @@ _fast_mode = 3
 if _fast_mode == 0:
     _dataset_path = os.path.join(_path, '../../dataset/wikidata-disambig-train.json')
 elif _fast_mode == 1:
+    _dataset_path = os.path.join(_path, '../../dataset/wikidata-disambig-train.half.json')
+elif _fast_mode == 2:
     _dataset_path = os.path.join(_path, '../../dataset/wikidata-disambig-train.medium.json')
 else:
     _dataset_path = os.path.join(_path, '../../dataset/wikidata-disambig-train.sample.json')
