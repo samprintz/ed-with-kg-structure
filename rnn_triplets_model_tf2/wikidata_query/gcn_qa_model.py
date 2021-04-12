@@ -213,11 +213,11 @@ class GCN_QA(object):
     # Loading and saving functions
 
     def save(self, filename):
-        saver = tf.train.Saver()
+        saver = tf.compat.v1.train.Saver()
         saver.save(self.sess, filename)
 
     def load_tensorflow(self, filename):
-        saver = tf.train.Saver([v for v in tf.global_variables() if NAMESPACE in v.name])
+        saver = tf.compat.v1.train.Saver([v for v in tf.compat.v1.global_variables() if NAMESPACE in v.name])
         saver.restore(self.sess, filename)
 
     @classmethod
