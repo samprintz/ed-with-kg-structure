@@ -175,8 +175,9 @@ class GCN_QA(object):
                                    [data[i][2] for i in range(len(data))],
                                    [data[i][3] for i in range(len(data))],
                                    [data[i][4] for i in range(len(data))])
-            print(loss)
+            #print(loss, end='\r')
             sys.stdout.flush()
+            return loss
 
     def __predict(self, node_X, item_vector, question_vectors, question_mask):
         node_X_fw = np.array(node_X)

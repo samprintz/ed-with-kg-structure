@@ -10,8 +10,9 @@ from wikidata_query.utils import infer_vector_from_word, infer_vector_from_doc
 from wikidata_query.utils import get_words
 from wikidata_query.utils import _is_relevant
 from wikidata_query.utils import _is_not_relevant
-from wikidata_query.wikidata_items import wikidata_items
 from wikidata_query.sentence_processor import get_adjacency_matrices_and_vectors_given_triplets
+from wikidata_query.glove import GloveModel
+from wikidata_query.wikidata_items import WikidataItems
 
 _path = os.path.dirname(__file__)
 
@@ -19,19 +20,9 @@ cache_dir = os.path.join(_path, '../../data/triple_cache/')
 if not os.path.exists(cache_dir):
     os.makedirs(cache_dir)
 
-_fast_mode = 3
-
-if _fast_mode == 0:
-    print("Loading GloVe")
-    _model = KeyedVectors.load_word2vec_format(os.path.join(_path, '../../data/glove_2.2M.txt'))
-elif _fast_mode == 1 or _fast_mode == 2:
-    print("Loading GloVe (medium)")
-    _model = KeyedVectors.load_word2vec_format(os.path.join(_path, '../../data/glove_2.2M.medium.txt'))
-else:
-    print("Loading GloVe (dummy)")
-    _model = KeyedVectors.load_word2vec_format(os.path.join(_path, '../../data/glove_2.2M.dummy.txt'))
-print("GloVe loaded")
-
+_fast_mode = 0
+_model = GloveModel(_path, _fast_mode)
+_wikidata_items = WikidataItems(_path, _fast_mode)
 _query = '''
 SELECT ?rel ?item ?rel2 ?to_item {
   wd:%s ?rel ?item
@@ -56,31 +47,31 @@ def get_graph_from_wikidata_id(wikidata_id, central_item):
     # NEW Check cache first
     cache_file = cache_dir + wikidata_id + ".nt"
     if os.path.exists(cache_file):
-        print(f'Read {wikidata_id} from cache', end='\r')
+        print(f'Read {wikidata_id} from cache')
         with open(cache_file) as cache:
             for line in cache:
                 from_item, relation, to_item = line.strip("\n").split("\t")
                 triplets.append((from_item, relation, to_item))
     elif _fast_mode >= 2:
-        print(f'{wikidata_id} not in cache, skipping (fast mode)', end='\r')
+        print(f'{wikidata_id} not in cache, skipping (fast mode)')
     else:
-        print(f'Get {wikidata_id} from Wikidata SPARQL endpoint', end='\r')
+        print(f'Get {wikidata_id} from Wikidata SPARQL endpoint')
         url = 'https://query.wikidata.org/bigdata/namespace/wdq/sparql'
         data = requests.get(url, params={'query': _query % wikidata_id,
                                          'format': 'json'}).json()
 
         for item in data['results']['bindings']:
             try:
-                from_item = wikidata_items.translate_from_url(wikidata_id)
-                relation = wikidata_items.translate_from_url(item['rel']['value'])
-                to_item = wikidata_items.translate_from_url(item['item']['value'])
+                from_item = _wikidata_items.translate_from_url(wikidata_id)
+                relation = _wikidata_items.translate_from_url(item['rel']['value'])
+                to_item = _wikidata_items.translate_from_url(item['item']['value'])
                 triplets.append((from_item, relation, to_item))
             except:
                 pass
             try:
-                from_item = wikidata_items.translate_from_url(item['item']['value'])
-                relation = wikidata_items.translate_from_url(item['rel2']['value'])
-                to_item = wikidata_items.translate_from_url(item['to_item']['value'])
+                from_item = _wikidata_items.translate_from_url(item['item']['value'])
+                relation = _wikidata_items.translate_from_url(item['rel2']['value'])
+                to_item = _wikidata_items.translate_from_url(item['to_item']['value'])
                 triplets.append((from_item, relation, to_item))
             except:
                 pass
@@ -94,7 +85,9 @@ def get_graph_from_wikidata_id(wikidata_id, central_item):
 
     if not triplets:
         raise RuntimeError(f"The graph of {wikidata_id} contains no suitable triplets.")
-    return get_adjacency_matrices_and_vectors_given_triplets(triplets, central_item, _model)
+
+    graph = get_adjacency_matrices_and_vectors_given_triplets(triplets, central_item, _model)
+    return graph
 
 
 def convert_text_into_vector_sequence(model, text):
@@ -235,7 +228,7 @@ def get_wikidata_id_of_item_different_from_given_one_with_boundaries(item_str,
                                                                      wikidata_id,
                                                                      min_number_of_negative_items=1,
                                                                      max_number_of_negative_items=1):
-    items = wikidata_items.reverse_lookup(item_str)
+    items = _wikidata_items.reverse_lookup(item_str)
     items = list(set(items))
     del items[items.index(wikidata_id)]
     if not items:
@@ -249,7 +242,7 @@ def get_wikidata_id_of_item_different_from_given_one_with_boundaries(item_str,
 
 def get_wikidata_id_of_item_different_from_given_one(item_str,
                                                      wikidata_id):
-    items = wikidata_items.reverse_lookup(item_str)
+    items = _wikidata_items.reverse_lookup(item_str)
     items = list(set(items))
     del items[items.index(wikidata_id)]
     if not items:

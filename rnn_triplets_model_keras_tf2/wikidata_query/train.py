@@ -10,7 +10,7 @@ _path = os.path.dirname(__file__)
 _saving_dir = os.path.join(_path, '../data/')
 _bucket_size = 10
 _minimum_trace = 10
-_fast_mode = 3
+_fast_mode = 2
 
 if _fast_mode == 0:
     _dataset_path = os.path.join(_path, '../../dataset/wikidata-disambig-train.json')
@@ -56,10 +56,15 @@ def train(data, model, saving_dir, name_prefix, epochs=20, bucket_size=10, trace
     import sys
 
     buckets = bin_data_into_buckets(data, bucket_size)
+    losses = []
     for i in range(epochs):
         random_buckets = sorted(buckets, key=lambda x: random.random())
+        bucket_count = 0
+        item_count = 0
+        item_count_all = sum([len(b) for b in random_buckets])
         sys.stderr.write('--------- Epoch ' + str(i) + ' ---------\n')
         for bucket in random_buckets:
+            bucket_count += 1
             graph_bucket = []
             try:
                 for item in bucket:
@@ -70,9 +75,13 @@ def train(data, model, saving_dir, name_prefix, epochs=20, bucket_size=10, trace
                     question_mask = item['question_mask']
                     graph_bucket.append((node_vectors, item_vector, question_vectors, question_mask, y))
                 if len(graph_bucket) > 0:
-                    model.train(graph_bucket, 1)
+                    loss = model.train(graph_bucket, 1)
+                    item_count += len(graph_bucket)
+                    print(f'Item {item_count}/{item_count_all}, bucket {bucket_count}/{len(random_buckets)} (loss={loss})', end='\r')
+                    losses.append(loss)
             except Exception as e:
                 print('Exception caught during training: ' + str(e))
+        print("Average loss of epoch " + str(i) + ": " + str(sum(losses)/len(losses)))
         if i % trace_every == 0:
             save_filename = saving_dir + name_prefix + '-' + str(i) + '.tf'
             sys.stderr.write('Saving into ' + save_filename + '\n')
@@ -88,7 +97,7 @@ if __name__ == '__main__':
           nn_model,
           _saving_dir,
           name_prefix='qa',
-          epochs=60,
+          epochs=20,
           bucket_size=10,
           trace_every=1,
           )

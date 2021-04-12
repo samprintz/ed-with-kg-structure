@@ -28,18 +28,7 @@ def low_case(word):
 
 
 def infer_vector_from_word(model, word):
-    vector = np.zeros(300)
-    try:
-        vector = model[word]
-    except:
-        try:
-            vector = model[capitalize(word)]
-        except:
-            try:
-                vector = model[low_case(word)]
-            except:
-                pass
-    return vector
+    return model.infer_vector_from_word(word)
 
 
 def infer_vector_from_doc(model, text):
