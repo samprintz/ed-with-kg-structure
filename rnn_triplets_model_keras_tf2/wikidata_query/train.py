@@ -1,3 +1,4 @@
+import logging
 import os
 import json
 import numpy as np
@@ -10,7 +11,15 @@ _path = os.path.dirname(__file__)
 _saving_dir = os.path.join(_path, '../data/')
 _bucket_size = 10
 _minimum_trace = 10
-_fast_mode = 2
+_fast_mode = 3
+
+_logger = logging.getLogger(__name__)
+_logging_level = logging.DEBUG
+logging.basicConfig(level=_logging_level, format="%(asctime)s: %(levelname)-1.1s %(name)s] %(message)s")
+
+_logger.info(f'Logging level: {_logging_level}')
+
+print(f'Fast mode: {_fast_mode}')
 
 if _fast_mode == 0:
     _dataset_path = os.path.join(_path, '../../dataset/wikidata-disambig-train.json')
@@ -62,7 +71,7 @@ def train(data, model, saving_dir, name_prefix, epochs=20, bucket_size=10, trace
         bucket_count = 0
         item_count = 0
         item_count_all = sum([len(b) for b in random_buckets])
-        sys.stderr.write('--------- Epoch ' + str(i) + ' ---------\n')
+        print(f'--------- Epoch {str(i)}/{str(epochs)} ---------')
         for bucket in random_buckets:
             bucket_count += 1
             graph_bucket = []
@@ -77,11 +86,14 @@ def train(data, model, saving_dir, name_prefix, epochs=20, bucket_size=10, trace
                 if len(graph_bucket) > 0:
                     loss = model.train(graph_bucket, 1)
                     item_count += len(graph_bucket)
-                    print(f'Item {item_count}/{item_count_all}, bucket {bucket_count}/{len(random_buckets)} (loss={loss})', end='\r')
                     losses.append(loss)
+                    loss = "{:.5f}".format(loss)
+                    avg_loss = "{:.5f}".format(sum(losses)/len(losses))
+                    print(f'Item {item_count}/{item_count_all}, bucket {bucket_count}/{len(random_buckets)} (loss={loss}, avg_loss={avg_loss})', end='\r')
             except Exception as e:
-                print('Exception caught during training: ' + str(e))
-        print("Average loss of epoch " + str(i) + ": " + str(sum(losses)/len(losses)))
+                raise e
+                #print(f'Exception caught during training: {str(e)}')
+        print(f'\nAverage loss of epoch {str(i)}: {str(sum(losses)/len(losses))}')
         if i % trace_every == 0:
             save_filename = saving_dir + name_prefix + '-' + str(i) + '.tf'
             sys.stderr.write('Saving into ' + save_filename + '\n')
@@ -96,7 +108,7 @@ if __name__ == '__main__':
     train(data,
           nn_model,
           _saving_dir,
-          name_prefix='qa',
+          name_prefix='model',
           epochs=20,
           bucket_size=10,
           trace_every=1,

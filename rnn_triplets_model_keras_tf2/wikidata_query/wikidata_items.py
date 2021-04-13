@@ -1,16 +1,10 @@
 import os
-import logging
-
-_path = os.path.dirname(__file__)
-
-_fast_mode = 0
 
 
 class WikidataItems:
-    _logger = logging.getLogger(__name__)
-    logging.basicConfig(level=logging.DEBUG)
 
-    def __init__(self, dir_path, fast_mode):
+    def __init__(self, dir_path, fast_mode, logger):
+        self._logger = logger
         self._fast_mode = fast_mode
         self._dir = dir_path
         self._cache_dir = os.path.join(dir_path, '../../data/items_cache/')
@@ -81,7 +75,7 @@ class WikidataItems:
         with open(cache_file) as cache:
             line = cache.readline().strip()
         if not item_name: # empty string
-            self._logger.warning(f'Read emtry string from cache for "{item_id}"')
+            self._logger.warning(f'Read empty string from cache for "{item_id}"')
             return None
         else:
             self._logger.debug(f'Read embedding of "{item_id}" from cache')
