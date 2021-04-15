@@ -1,3 +1,4 @@
+import logging
 import numpy as np
 import os
 from gensim.models import KeyedVectors
@@ -7,7 +8,7 @@ from wikidata_query.utils import capitalize, low_case
 class GloveModel:
 
     def __init__(self, dir_path, fast_mode, logger):
-        self._logger = logger
+        self._logger = logging.getLogger(__name__)
         self._fast_mode = fast_mode
         self._dir = dir_path
         self._cache_dir = os.path.join(dir_path, '../../data/glove_cache/')
@@ -61,11 +62,11 @@ class GloveModel:
     def __get_vector_from_cache(self, word):
         cache_file = f'{self._cache_dir}{word}.txt'
         if not os.path.exists(cache_file):
-            self._logger.debug(f'No embedding found in cache for "{word}"')
+            self._logger.info(f'No embedding found in cache for "{word}"')
             return None
         word_vector = np.loadtxt(cache_file)
         if not word_vector.any(): # zero vector
-            self._logger.info(f'Read zero vector (300,) from cache for "{word}"')
+            self._logger.debug(f'Read zero vector (300,) from cache for "{word}"')
         else:
             self._logger.debug(f'Read embedding of "{word}" from cache')
         return word_vector
@@ -73,8 +74,11 @@ class GloveModel:
 
     def __save_vector_to_cache(self, word, word_vector):
         cache_file = f'{self._cache_dir}{word}.txt'
-        np.savetxt(cache_file, word_vector)
-        self._logger.debug(f'Wrote embedding of "{word}" to cache')
+        try:
+            np.savetxt(cache_file, word_vector)
+            self._logger.debug(f'Wrote embedding of "{word}" to cache')
+        except FileNotFoundError:
+            self._logger.info(f'Could not cache {word}. Tried to cache word with slash? ({str(e)})')
 
 
     def __get_vector_from_memory(self, word):
@@ -92,6 +96,11 @@ class GloveModel:
 
 
     def infer_vector_from_word(self, word):
+        if '/' in word:
+            self._logger.debug(f'Using zero vector for word with slash ("{word}")')
+            word_vector = np.zeros(300)
+            return word_vector
+
         word_vector = self.__get_vector_from_memory(word)
 
         if word_vector is not None:

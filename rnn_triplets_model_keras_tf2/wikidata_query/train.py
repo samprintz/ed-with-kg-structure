@@ -14,12 +14,11 @@ _minimum_trace = 10
 _fast_mode = 3
 
 _logger = logging.getLogger(__name__)
-_logging_level = logging.DEBUG
+_logging_level = logging.INFO
 logging.basicConfig(level=_logging_level, format="%(asctime)s: %(levelname)-1.1s %(name)s] %(message)s")
 
-_logger.info(f'Logging level: {_logging_level}')
-
-print(f'Fast mode: {_fast_mode}')
+_logger.info(f'logging_level={_logging_level}')
+_logger.info(f'fast_mode={_logging_level}')
 
 if _fast_mode == 0:
     _dataset_path = os.path.join(_path, '../../dataset/wikidata-disambig-train.json')
@@ -66,7 +65,7 @@ def train(data, model, saving_dir, name_prefix, epochs=20, bucket_size=10, trace
 
     buckets = bin_data_into_buckets(data, bucket_size)
     losses = []
-    for i in range(epochs):
+    for i in range(1, epochs + 1):
         random_buckets = sorted(buckets, key=lambda x: random.random())
         bucket_count = 0
         item_count = 0
@@ -108,7 +107,7 @@ if __name__ == '__main__':
     train(data,
           nn_model,
           _saving_dir,
-          name_prefix='model',
+          name_prefix='model-20210414-1',
           epochs=20,
           bucket_size=10,
           trace_every=1,

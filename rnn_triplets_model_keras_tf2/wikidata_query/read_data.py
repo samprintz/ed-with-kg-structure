@@ -25,7 +25,7 @@ _logger = logging.getLogger(__name__)
 _logging_level = logging.INFO
 logging.basicConfig(level=_logging_level, format="%(asctime)s: %(levelname)-1.1s %(name)s] %(message)s")
 
-_logger.info(f'Logging level: {_logging_level}')
+_logger.info(f'logging_level={_logging_level}')
 
 _fast_mode = 0
 _model = GloveModel(_path, _fast_mode, _logger)
@@ -54,7 +54,7 @@ def get_graph_from_wikidata_id(wikidata_id, central_item):
     # NEW Check cache first
     cache_file = cache_dir + wikidata_id + ".nt"
     if os.path.exists(cache_file):
-        _logger.info(f'Read {wikidata_id} from cache')
+        _logger.debug(f'Read {wikidata_id} from cache')
         with open(cache_file) as cache:
             for line in cache:
                 from_item, relation, to_item = line.strip("\n").split("\t")
@@ -134,7 +134,7 @@ def get_data(filename, offset, limit):
                     text_item_graph_dict['question_mask'] = get_item_mask_for_words(text, item)
                     data.append(text_item_graph_dict)
                 except Exception as e:
-                    _logger.error(str(e))
+                    _logger.warning(str(e))
     return data
 
 
@@ -170,7 +170,7 @@ def get_data_and_write_json(filename, offset, limit, json_file):
                     json_file.write(',\n')
 
                 except Exception as e:
-                    _logger.error(str(e))
+                    _logger.warning(str(e))
 
 
 def infer_vector_from_vector_nodes(vector_list):
@@ -206,7 +206,7 @@ def get_json_data_many_wrong_ids(json_data):
                 text_item_graph_dict['answer'] = _is_not_relevant
                 data.append(text_item_graph_dict)
         except Exception as e:
-            _logger.error(str(e))
+            _logger.warning(str(e))
     return data
 
 
@@ -227,7 +227,7 @@ def get_json_data(json_data):
             text_item_graph_dict['answer'] = _is_not_relevant
             data.append(text_item_graph_dict)
         except Exception as e:
-            _logger.error(str(e))
+            _logger.warning(str(e))
     return data
 
 
