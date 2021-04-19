@@ -22,7 +22,7 @@ class WikidataItems:
 
 
     def __setitem__(self, index, value):
-        self._vectors_dict[index] = value
+        self._items_dict[index] = value
 
 
     def __load_items(self):
