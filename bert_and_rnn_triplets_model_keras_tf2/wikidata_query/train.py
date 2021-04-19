@@ -63,6 +63,19 @@ def train(data, model, saving_dir, name_prefix, epochs=20, bucket_size=10, trace
     import random
     import sys
 
+    """
+    dataset = {
+            'text': [item['text'] for item in data],
+            'node_vectors': [item['graph']['vectors'] for item in data],
+            'item_vector': [item['item_vector'] for item in data],
+            'question_vectors': [item['question_vectors'] for item in data],
+            'question_mask': [item['question_mask'] for item in data],
+            'y': [item['answer'] for item in data]
+    }
+
+    model.train(dataset, epochs=10, batch_size=1)
+    """
+
     buckets = bin_data_into_buckets(data, bucket_size)
     losses = []
     for i in range(1, epochs + 1):
@@ -95,7 +108,7 @@ def train(data, model, saving_dir, name_prefix, epochs=20, bucket_size=10, trace
                 #print(f'Exception caught during training: {str(e)}')
         print(f'\nAverage loss of epoch {str(i)}: {str(sum(losses)/len(losses))}')
         if i % trace_every == 0:
-            save_filename = saving_dir + name_prefix + '-' + str(i) + '.tf'
+            save_filename = f'{saving_dir}/{name_prefix}/{name_prefix}-{str(i)}.tf'
             sys.stderr.write('Saving into ' + save_filename + '\n')
             model.save(save_filename)
 
@@ -108,7 +121,7 @@ if __name__ == '__main__':
     train(data,
           nn_model,
           _saving_dir,
-          name_prefix='model-20210419-1',
+          name_prefix='model-20210419-2',
           epochs=20,
           bucket_size=10,
           trace_every=1,

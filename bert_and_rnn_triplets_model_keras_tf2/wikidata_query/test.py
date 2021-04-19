@@ -123,11 +123,11 @@ if __name__ == '__main__':
         json_data = json.load(f)
     data = get_json_data(json_data)
     epochs = 20
-    name_prefix='model-20210419-1/model-20210419-1'
+    name_prefix='model-20210419-2'
     for i in range(1, epochs + 1):
         print(f'--------- Epoch {str(i)}/{str(epochs)} ---------')
         try:
-            nn_models = GCN_QA.load(os.path.join(_path, f'../data/{name_prefix}-{str(i)}.tf'))
+            nn_models = GCN_QA.load(os.path.join(_path, f'../data/{name_prefix}/{name_prefix}-{str(i)}.tf'))
             test(data, nn_models)
         except OSError:
             str(e)

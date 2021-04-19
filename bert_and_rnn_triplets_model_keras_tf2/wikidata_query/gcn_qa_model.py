@@ -94,6 +94,27 @@ class GCN_QA(object):
         return history
 
     def train(self, data, epochs=20):
+        """
+    def train(self, dataset, epochs=20, batch_size=32):
+        dataset['text'] = np.asarray(dataset['text'])
+        dataset['node_vectors'] = tf.keras.preprocessing.sequence.pad_sequences(dataset['node_vectors'], value=0.0)
+        dataset['item_vector'] = np.asarray(dataset['item_vector'])
+        dataset['question_vectors'] = tf.keras.preprocessing.sequence.pad_sequences(dataset['question_vectors'], value=0.0)
+        dataset['question_mask'] = tf.keras.preprocessing.sequence.pad_sequences(dataset['question_mask'], maxlen=self._max_text_length, value=0.0)
+        dataset['y'] = np.asarray(dataset['y'])
+
+        self.__train(
+                dataset['text'],
+                dataset['node_vectors'],
+                dataset['item_vector'],
+                dataset['question_vectors'],
+                dataset['question_mask'],
+                dataset['y'],
+                epochs=epochs,
+                batch_size=batch_size
+        )
+        """
+
         for epoch in range(epochs):
             text = [data[i][5] for i in range(len(data))]
             node_X = [data[i][0] for i in range(len(data))]
@@ -102,10 +123,20 @@ class GCN_QA(object):
             question_mask = [data[i][3] for i in range(len(data))]
             y = [data[i][4] for i in range(len(data))]
 
-            node_X = np.asarray(node_X)
             item_vector = np.asarray(item_vector)
+
+            # Padding node_X prevents the model from learning (loss stays at 0.693)
+            node_X = np.asarray(node_X)
+            #node_X = tf.keras.preprocessing.sequence.pad_sequences(node_X, maxlen=676, value=0.0) # TODO maxlen
+
+            # Padding question_vectors is okay
             question_vectors = np.asarray(question_vectors)
+            question_vectors = tf.keras.preprocessing.sequence.pad_sequences(question_vectors, maxlen=53, value=0.0) # TODO maxlen
+
+            # Padding the question_mask is okay and even necessary (to avoid errors)
+            #question_mask = np.asarray(question_mask)
             question_mask = tf.keras.preprocessing.sequence.pad_sequences(question_mask, maxlen=self._max_text_length, value=0.0)
+
             y = np.asarray(y)
 
             history = self.__train(text, node_X, item_vector, question_vectors, question_mask, y)
