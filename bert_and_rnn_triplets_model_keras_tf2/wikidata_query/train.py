@@ -76,12 +76,13 @@ def train(data, model, saving_dir, name_prefix, epochs=20, bucket_size=10, trace
             graph_bucket = []
             try:
                 for item in bucket:
+                    text = item['text']
                     node_vectors = item['graph']['vectors']
                     y = item['answer']
                     item_vector = item['item_vector']
                     question_vectors = item['question_vectors']
                     question_mask = item['question_mask']
-                    graph_bucket.append((node_vectors, item_vector, question_vectors, question_mask, y))
+                    graph_bucket.append((node_vectors, item_vector, question_vectors, question_mask, y, text))
                 if len(graph_bucket) > 0:
                     loss = model.train(graph_bucket, 1)
                     item_count += len(graph_bucket)
@@ -107,7 +108,7 @@ if __name__ == '__main__':
     train(data,
           nn_model,
           _saving_dir,
-          name_prefix='model-20210414-1',
+          name_prefix='model-20210419-1',
           epochs=20,
           bucket_size=10,
           trace_every=1,

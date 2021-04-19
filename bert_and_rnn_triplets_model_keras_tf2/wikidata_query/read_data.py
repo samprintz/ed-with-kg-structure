@@ -106,11 +106,12 @@ def convert_text_into_vector_sequence(model, text):
 
 
 def get_item_mask_for_words(text, item):
+    embedding_size = 768 # for bert; 200 for LSTM
     words = get_words(text)
     types = []
     words_in_item = get_words(item.lower())
     for word in words:
-        types.append([1. if word.lower() in words_in_item else 0.] * 200)
+        types.append([1. if word.lower() in words_in_item else 0.] * embedding_size)
     return types
 
 

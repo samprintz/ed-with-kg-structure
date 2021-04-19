@@ -90,12 +90,13 @@ def test(data, model):
     false_negatives = 0
     for item in data:
         expected = item['answer']
+        text = item['text']
         node_vectors = item['graph']['vectors']
         item_vector = item['item_vector']
         question_vectors = item['question_vectors']
         question_mask = item['question_mask']
 #        try:
-        prediction = model.predict(node_vectors, item_vector, question_vectors, question_mask)
+        prediction = model.predict(text, node_vectors, item_vector, question_vectors, question_mask)
         if prediction == expected and expected == _is_relevant:
             true_positives += 1
         if prediction == expected and expected == _is_not_relevant:
@@ -122,7 +123,7 @@ if __name__ == '__main__':
         json_data = json.load(f)
     data = get_json_data(json_data)
     epochs = 20
-    name_prefix='model-20210414-1'
+    name_prefix='model-20210419-1/model-20210419-1'
     for i in range(1, epochs + 1):
         print(f'--------- Epoch {str(i)}/{str(epochs)} ---------')
         try:
