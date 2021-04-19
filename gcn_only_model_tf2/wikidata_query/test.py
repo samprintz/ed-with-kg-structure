@@ -110,6 +110,6 @@ if __name__ == '__main__':
         json_data = json.load(f)
     data = get_json_data(json_data)
     for i in range(0, 13, 1):
-        print(i)
+        print(f'\n=== Testing iteration {i} ===')
         nn_models = GCN_QA.load(os.path.join(_path, '../data/qa-' + str(i) + '.tf'))
         test(data, nn_models)

@@ -3,6 +3,7 @@ import random
 import requests
 import numpy as np
 
+from pathlib import Path
 from gensim.models import KeyedVectors
 
 from wikidata_query.utils import infer_vector_from_word, infer_vector_from_doc
@@ -14,7 +15,15 @@ from wikidata_query.sentence_processor import get_adjacency_matrices_and_vectors
 
 _path = os.path.dirname(__file__)
 
+cache_dir = os.path.join(_path, '../../data/triple_cache/')
+if not os.path.exists(cache_dir):
+    os.makedirs(cache_dir)
+
+print("Loading GloVe")
 _model = KeyedVectors.load_word2vec_format(os.path.join(_path, '../../data/glove_2.2M.txt'))
+#print("Loading GloVe (dummy)")
+#_model = KeyedVectors.load_word2vec_format(os.path.join(_path, '../../data/glove_2.2M.dummy.txt'))
+print("GloVe loaded")
 
 _query = '''
 SELECT ?rel ?item ?rel2 ?to_item {
@@ -36,28 +45,50 @@ def get_wikidata_id_from_wikipedia_id(wikipedia_id):
 
 
 def get_graph_from_wikidata_id(wikidata_id, central_item):
-    url = 'https://query.wikidata.org/bigdata/namespace/wdq/sparql'
-    data = requests.get(url, params={'query': _query % wikidata_id,
-                                     'format': 'json'}).json()
     triplets = []
-    for item in data['results']['bindings']:
-        try:
-            from_item = wikidata_items.translate_from_url(wikidata_id)
-            relation = wikidata_items.translate_from_url(item['rel']['value'])
-            to_item = wikidata_items.translate_from_url(item['item']['value'])
-            triplets.append((from_item, relation, to_item))
-        except:
-            pass
-        try:
-            from_item = wikidata_items.translate_from_url(item['item']['value'])
-            relation = wikidata_items.translate_from_url(item['rel2']['value'])
-            to_item = wikidata_items.translate_from_url(item['to_item']['value'])
-            triplets.append((from_item, relation, to_item))
-        except:
-            pass
-    triplets = sorted(list(set(triplets)))
+    count_cache = 0
+    count_query = 0
+
+    # NEW Check cache first
+    cache_file = cache_dir + wikidata_id + ".nt"
+    if os.path.exists(cache_file):
+        print(f'Read {wikidata_id} from cache')
+        count_cache += 1
+        with open(cache_file) as cache:
+            for line in cache:
+                from_item, relation, to_item = line.strip("\n").split("\t")
+                triplets.append((from_item, relation, to_item))
+    else:
+        print(f'Get {wikidata_id} from Wikidata SPARQL endpoint')
+        url = 'https://query.wikidata.org/bigdata/namespace/wdq/sparql'
+        data = requests.get(url, params={'query': _query % wikidata_id,
+                                         'format': 'json'}).json()
+
+        for item in data['results']['bindings']:
+            try:
+                from_item = wikidata_items.translate_from_url(wikidata_id)
+                relation = wikidata_items.translate_from_url(item['rel']['value'])
+                to_item = wikidata_items.translate_from_url(item['item']['value'])
+                triplets.append((from_item, relation, to_item))
+            except:
+                pass
+            try:
+                from_item = wikidata_items.translate_from_url(item['item']['value'])
+                relation = wikidata_items.translate_from_url(item['rel2']['value'])
+                to_item = wikidata_items.translate_from_url(item['to_item']['value'])
+                triplets.append((from_item, relation, to_item))
+            except:
+                pass
+        triplets = sorted(list(set(triplets)))
+
+        # NEW Caching
+        with open(f'{cache_dir}{wikidata_id}.nt', "w+") as cache_file:
+            for triple in triplets:
+                line = '\t'.join(triple) + '\n'
+                cache_file.write(line)
+
     if not triplets:
-        raise RuntimeError("This graph contains no suitable triplets.")
+        raise RuntimeError(f"The graph of {wikidata_id} contains no suitable triplets.")
     return get_adjacency_matrices_and_vectors_given_triplets(triplets, central_item, _model)
 
 
@@ -99,6 +130,12 @@ def get_data(filename, offset, limit):
                     data.append(text_item_graph_dict)
                 except Exception as e:
                     print(str(e))
+
+    # TODO Cache everything
+    #with open("item_pickle.pkl", "wb") as outfile:
+    #    pickle.dump(data, outfile)
+    #    print("Written graph data to item_pickle.pkl")
+
     return data
 
 

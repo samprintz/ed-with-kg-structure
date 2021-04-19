@@ -6,10 +6,12 @@ _path = os.path.dirname(__file__)
 
 class WikidataItems:
     _filename = os.path.join(_path, '../../data/wikidata_items.csv')
+    #_filename = os.path.join(_path, '../../data/wikidata_items.sample.csv')
     _logger = logging.getLogger(__name__)
 
     def __init__(self):
         self._logger.warning('Loading items')
+        #self._logger.warning('Loading items (sample)')
         self._items_dict = {}
         self._reverse_dict = {}
         with open(self._filename, encoding='utf8') as f:
