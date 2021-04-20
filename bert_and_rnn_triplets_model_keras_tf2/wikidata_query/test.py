@@ -16,9 +16,6 @@ _logger = logging.getLogger(__name__)
 _logging_level = logging.INFO
 logging.basicConfig(level=_logging_level, format="%(asctime)s: %(levelname)-1.1s %(name)s] %(message)s")
 
-_logger.info(f'logging_level={_logging_level}')
-_logger.info(f'fast_mode={_logging_level}')
-
 if _fast_mode == 0:
     _dataset_path = os.path.join(_path, '../../dataset/wikidata-disambig-dev.json')
 else:
@@ -122,12 +119,6 @@ if __name__ == '__main__':
     with open(_dataset_path) as f:
         json_data = json.load(f)
     data = get_json_data(json_data)
-    epochs = 20
-    name_prefix='model-20210420-1'
-    for i in range(1, epochs + 1):
-        print(f'--------- Epoch {str(i)}/{str(epochs)} ---------')
-        try:
-            nn_models = GCN_QA.load(os.path.join(_path, f'../data/{name_prefix}/{name_prefix}-{str(i)}.tf'))
-            test(data, nn_models)
-        except OSError:
-            str(e)
+    name_prefix='model-20210420-2'
+    model = GCN_QA.load(os.path.join(_path, f'../data/{name_prefix}.tf'))
+    test(data, model)

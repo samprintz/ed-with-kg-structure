@@ -25,8 +25,6 @@ _logger = logging.getLogger(__name__)
 _logging_level = logging.INFO
 logging.basicConfig(level=_logging_level, format="%(asctime)s: %(levelname)-1.1s %(name)s] %(message)s")
 
-_logger.info(f'logging_level={_logging_level}')
-
 _fast_mode = 0
 _model = GloveModel(_path, _fast_mode, _logger)
 _wikidata_items = WikidataItems(_path, _fast_mode, _logger)

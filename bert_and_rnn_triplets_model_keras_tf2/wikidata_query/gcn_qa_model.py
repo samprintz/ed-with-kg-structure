@@ -88,18 +88,13 @@ class GCN_QA(object):
         tokenizer = DistilBertTokenizer.from_pretrained(self._distil_bert, do_lower_case=True, add_special_tokens=True,
                 max_length=self._max_text_length, pad_to_max_length=True)
         question, attention_mask = self.__tokenize(text, tokenizer, self._max_text_length)
-
         # Fit model
-        #TODO use custom fit method
-        # https://www.tensorflow.org/guide/keras/customizing_what_happens_in_fit
         history = self._model.fit([question, attention_mask, question_mask, node_X], y, epochs=epochs, batch_size=batch_size)
         return history
 
-    def train(self, data, epochs=20):
-        """
     def train(self, dataset, epochs=20, batch_size=32):
         dataset['text'] = np.asarray(dataset['text'])
-        dataset['node_vectors'] = tf.keras.preprocessing.sequence.pad_sequences(dataset['node_vectors'], value=0.0)
+        dataset['node_vectors'] = tf.keras.preprocessing.sequence.pad_sequences(dataset['node_vectors'], value=self._mask_value, padding='post', dtype='float64')
         dataset['item_vector'] = np.asarray(dataset['item_vector'])
         dataset['question_vectors'] = tf.keras.preprocessing.sequence.pad_sequences(dataset['question_vectors'], value=0.0)
         dataset['question_mask'] = tf.keras.preprocessing.sequence.pad_sequences(dataset['question_mask'], maxlen=self._max_text_length, value=0.0)
@@ -115,35 +110,6 @@ class GCN_QA(object):
                 epochs=epochs,
                 batch_size=batch_size
         )
-        """
-
-        for epoch in range(epochs):
-            text = [data[i][5] for i in range(len(data))]
-            node_X = [data[i][0] for i in range(len(data))]
-            item_vector = [data[i][1] for i in range(len(data))]
-            question_vectors = [data[i][2] for i in range(len(data))]
-            question_mask = [data[i][3] for i in range(len(data))]
-            y = [data[i][4] for i in range(len(data))]
-
-            item_vector = np.asarray(item_vector)
-
-            # Padding node_X prevents the model from learning (loss stays at 0.693)
-            #node_X = np.asarray(node_X)
-            node_X = tf.keras.preprocessing.sequence.pad_sequences(node_X, maxlen=676, value=self._mask_value, padding='post', dtype='float64') # TODO maxlen
-
-            # Padding question_vectors is okay
-            question_vectors = np.asarray(question_vectors)
-            question_vectors = tf.keras.preprocessing.sequence.pad_sequences(question_vectors, maxlen=53, value=0.0) # TODO maxlen
-
-            # Padding the question_mask is okay and even necessary (to avoid errors)
-            #question_mask = np.asarray(question_mask)
-            question_mask = tf.keras.preprocessing.sequence.pad_sequences(question_mask, maxlen=self._max_text_length, value=0.0)
-
-            y = np.asarray(y)
-
-            history = self.__train(text, node_X, item_vector, question_vectors, question_mask, y)
-            loss = history.history['loss'][0]
-            return loss
 
     def __predict(self, text, node_X, item_vector, question_vectors, question_mask):
         # Tokenize
