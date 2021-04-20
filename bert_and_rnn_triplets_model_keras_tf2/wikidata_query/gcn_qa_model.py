@@ -4,7 +4,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1' # INFO messages are not printed
 import sys
 import tensorflow as tf
 import numpy as np
-from tensorflow.keras.layers import Input, Dense, GRU, LSTM, Bidirectional, Activation, Dropout, Concatenate, BatchNormalization
+from tensorflow.keras.layers import Input, Dense, GRU, LSTM, Bidirectional, Activation, Dropout, Concatenate, BatchNormalization, Masking
 from transformers import DistilBertTokenizer, TFDistilBertForSequenceClassification, DistilBertConfig, TFDistilBertModel
 
 gpu_devices = tf.config.experimental.list_physical_devices('GPU')
@@ -25,6 +25,7 @@ class GCN_QA(object):
 
     _distil_bert = 'distilbert-base-uncased'
     _memory_dim = 100
+    _mask_value = -10.0
 
     def __init__(self, dropout=1.0):
         tf.compat.v1.reset_default_graph()
@@ -50,7 +51,8 @@ class GCN_QA(object):
         bw_lstm = LSTM(self._memory_dim, go_backwards=True)
 
         input_nodes = Input(shape=(None, self._nodes_vocab_size))
-        nodes_outputs = Bidirectional(layer=fw_lstm, backward_layer=bw_lstm)(input_nodes)
+        masked_nodes = Masking(mask_value=self._mask_value)(input_nodes)
+        nodes_outputs = Bidirectional(layer=fw_lstm, backward_layer=bw_lstm)(masked_nodes)
         nodes_outputs = Dense(self._nodes_vector_size)(nodes_outputs)
         nodes_outputs = Activation('relu')(nodes_outputs)
 
@@ -126,8 +128,8 @@ class GCN_QA(object):
             item_vector = np.asarray(item_vector)
 
             # Padding node_X prevents the model from learning (loss stays at 0.693)
-            node_X = np.asarray(node_X)
-            #node_X = tf.keras.preprocessing.sequence.pad_sequences(node_X, maxlen=676, value=0.0) # TODO maxlen
+            #node_X = np.asarray(node_X)
+            node_X = tf.keras.preprocessing.sequence.pad_sequences(node_X, maxlen=676, value=self._mask_value, padding='post', dtype='float64') # TODO maxlen
 
             # Padding question_vectors is okay
             question_vectors = np.asarray(question_vectors)
@@ -160,6 +162,7 @@ class GCN_QA(object):
     def predict(self, text, node_X, item_vector, question_vectors, question_mask):
         text = [text]
         node_X = np.expand_dims(node_X, axis=0)
+        node_X = tf.keras.preprocessing.sequence.pad_sequences(node_X, maxlen=676, value=self._mask_value, padding='post', dtype='float64') # TODO maxlen
         question_vectors = np.expand_dims(question_vectors, axis=0)
         question_mask = np.expand_dims(question_mask, axis=0)
         question_mask = tf.keras.preprocessing.sequence.pad_sequences(question_mask, maxlen=self._max_text_length, value=0.0)
