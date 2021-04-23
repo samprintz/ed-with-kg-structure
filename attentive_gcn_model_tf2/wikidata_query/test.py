@@ -108,13 +108,14 @@ def test(data, model):
         print('precision', precision)
         print('recall', recall)
         print('f1', f1)
-    except:
-        print('Cannot compute precision and recall.')
+    except Exception as e:
+        print('Cannot compute precision and recall:')
+        print(str(e))
 
 
 if __name__ == '__main__':
     epochs = 20
-    name_prefix='model-20210421-1'
+    name_prefix='model-20210420-3'
     print(f'Model {name_prefix}, {epochs} epochs, dataset {_dataset_path}')
 
     with open(_dataset_path) as f:
