@@ -71,15 +71,16 @@ class WikidataItems:
     def __get_item_from_cache(self, item_id):
         cache_file = f'{self._cache_dir}{item_id}.txt'
         if not os.path.exists(cache_file):
-            self._logger.info(f'No embedding found in cache for "{item_id}"')
+            self._logger.debug(f'No name found in cache for "{item_id}"')
             return None
         with open(cache_file) as cache:
-            line = cache.readline().strip()
+            item_name = cache.readline().strip()
         if not item_name: # empty string
-            self._logger.info(f'Read empty string from cache for "{item_id}"')
-            return None
+            self._logger.debug(f'Read empty string from cache for "{item_id}"')
+            # TODO Add first the empty string to memory cache, then raise exception
+            raise Exception(f'"{item_id}" is not a named Wikidata item') # exception leads to passing this item_id/word
         else:
-            self._logger.debug(f'Read embedding of "{item_id}" from cache')
+            self._logger.debug(f'Read name of "{item_id}" from cache')
         return item_name
 
 
@@ -94,6 +95,9 @@ class WikidataItems:
         try:
             item_name = self[item]
             self._logger.debug(f'Read name of "{item}" from memory')
+            if not item_name: # empty string
+                self._logger.debug(f'Read empty string from memory for "{item_id}"')
+                raise Exception(f'"{item_id}" is not a named Wikidata item') # exception leads to passing this item_id/word
             return item_name
         except:
             return None
@@ -113,7 +117,7 @@ class WikidataItems:
         item_name = self.__get_item_from_cache(item_id)
 
         if item_name is not None:
-            self.__store_vector_in_memory(item_id, item_name)
+            self.__store_item_in_memory(item_id, item_name)
             return item_name
 
         item_name = self.__get_item_from_file(item_id)
@@ -126,7 +130,7 @@ class WikidataItems:
         item_name = ""
         self.__store_item_in_memory(item_id, item_name)
         self.__save_item_to_cache(item_id, item_name)
-        return item_name
+        raise Exception(f'"{item_id}" is not a named Wikidata item') # exception leads to passing this item_id/word
 
 
     def translate_from_url(self, url):
