@@ -1,6 +1,7 @@
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1' # INFO messages are not printed
 
+import random
 import sys
 import tensorflow as tf
 import numpy as np
@@ -30,14 +31,18 @@ class GCN_QA(object):
     def __init__(self, dropout=1.0):
         tf.compat.v1.reset_default_graph()
 
+        # Tokenizer
+        self._tokenizer = DistilBertTokenizer.from_pretrained(self._distil_bert, do_lower_case=True,
+                add_special_tokens=True, max_length=self._max_text_length, pad_to_max_length=True)
+
         # Part I: Question text sequence -> BERT
         config = DistilBertConfig(dropout=0.2, attention_dropout=0.2)
         config.output_hidden_states = False
         transformer_model = TFDistilBertModel.from_pretrained(self._distil_bert, config=config)
 
-        input_question = Input(shape=(self._max_text_length,), dtype='int32')
-        input_attention_mask = Input(shape=(self._max_text_length,), dtype='int32')
-        input_sf_mask = Input(shape=(self._max_text_length, self._bert_embedding_size), dtype='float32')
+        input_question = Input(shape=(self._max_text_length,), dtype='int32', name='question')
+        input_attention_mask = Input(shape=(self._max_text_length,), dtype='int32', name='attention_mask')
+        input_sf_mask = Input(shape=(self._max_text_length, self._bert_embedding_size), dtype='float32', name='question_mask')
 
         embedding_layer = transformer_model.distilbert(input_question, attention_mask=input_attention_mask)[0]
         #cls_token = embedding_layer[:,0,:]
@@ -50,7 +55,7 @@ class GCN_QA(object):
         fw_lstm = LSTM(self._memory_dim)
         bw_lstm = LSTM(self._memory_dim, go_backwards=True)
 
-        input_nodes = Input(shape=(None, self._nodes_vocab_size))
+        input_nodes = Input(shape=(None, self._nodes_vocab_size), name='node_vectors')
         masked_nodes = Masking(mask_value=self._mask_value)(input_nodes)
         nodes_outputs = Bidirectional(layer=fw_lstm, backward_layer=bw_lstm)(masked_nodes)
         nodes_outputs = Dense(self._nodes_vector_size)(nodes_outputs)
@@ -75,7 +80,7 @@ class GCN_QA(object):
         #self._model.summary()
 
     def __tokenize(self, sentences, tokenizer, max_length):
-        input_ids, input_masks, input_segments = [],[],[]
+        input_ids, input_masks = [], []
         for sentence in sentences:
             inputs = tokenizer.encode_plus(sentence, add_special_tokens=True, max_length=max_length,
                     padding='max_length', return_attention_mask=True)
@@ -83,40 +88,67 @@ class GCN_QA(object):
             input_masks.append(inputs['attention_mask'])
         return np.asarray(input_ids, dtype='int32'), np.asarray(input_masks, dtype='int32')
 
-    def __train(self, text, node_X, item_vector, question_vectors, question_mask, y, epochs=1, batch_size=1):
-        # Tokenize
-        tokenizer = DistilBertTokenizer.from_pretrained(self._distil_bert, do_lower_case=True, add_special_tokens=True,
-                max_length=self._max_text_length, pad_to_max_length=True)
-        question, attention_mask = self.__tokenize(text, tokenizer, self._max_text_length)
-        # Fit model
-        history = self._model.fit([question, attention_mask, question_mask, node_X], y, epochs=epochs, batch_size=batch_size)
+    def __generate_data(self, dataset, batch_size):
+        dataset.pop('item_vector')
+        dataset.pop('question_vectors')
+
+        # https://stackoverflow.com/questions/46493419/use-a-generator-for-keras-model-fit-generator
+        i = 0
+        while True:
+            # get a batch from the shuffled dataset, preprocess it, and give it to the model
+            batch = {
+                    'text': [],
+                    'question': [],
+                    'attention_mask': [],
+                    'question_mask': [],
+                    'node_vectors': [],
+                    'y': []
+                }
+
+            # draw a (ordered) batch from the (shuffled) dataset
+            for b in range(batch_size):
+                if i == len(dataset['text']): # re-shuffle when processed whole dataset
+                    i = 0
+                    lists = list(zip(dataset['text'], dataset['node_vectors'], dataset['question_mask'], dataset['y']))
+                    random.shuffle(lists)
+                    dataset['text'], dataset['node_vectors'], dataset['question_mask'], dataset['y'] = zip(*lists)
+                    #TODO rather stop iteration?
+                    # raise StopIteration
+                # add sample
+                batch['text'].append(dataset['text'][i])
+                batch['node_vectors'].append(dataset['node_vectors'][i])
+                batch['question_mask'].append(dataset['question_mask'][i])
+                batch['y'].append(dataset['y'][i])
+                i += 1
+
+            # preprocess batch (array, pad, tokenize)
+            X = {}
+            X['node_vectors'] = tf.keras.preprocessing.sequence.pad_sequences(
+                    batch['node_vectors'], value=self._mask_value, padding='post', dtype='float64')
+            X['question_mask'] = tf.keras.preprocessing.sequence.pad_sequences(
+                    batch['question_mask'], maxlen=self._max_text_length, value=0.0)
+            X['question'], X['attention_mask'] = self.__tokenize(
+                    batch['text'], self._tokenizer, self._max_text_length)
+            y = np.asarray(batch['y'])
+
+            yield X, y
+
+    def __train(self, dataset, epochs=1, batch_size=1):
+        dataset_length = len(dataset['text'])
+        steps_per_epoch = (dataset_length // batch_size)
+        print(f'Training: epochs={epochs}, batch_size={batch_size}, dataset_length={dataset_length}, steps_per_epoch={steps_per_epoch}')
+        history = self._model.fit(
+                self.__generate_data(dataset, batch_size),
+                epochs = epochs,
+                steps_per_epoch=steps_per_epoch
+        )
         return history
 
     def train(self, dataset, epochs=20, batch_size=32):
-        dataset['text'] = np.asarray(dataset['text'])
-        dataset['node_vectors'] = tf.keras.preprocessing.sequence.pad_sequences(dataset['node_vectors'], value=self._mask_value, padding='post', dtype='float64')
-        dataset['item_vector'] = np.asarray(dataset['item_vector'])
-        dataset['question_vectors'] = tf.keras.preprocessing.sequence.pad_sequences(dataset['question_vectors'], value=0.0)
-        dataset['question_mask'] = tf.keras.preprocessing.sequence.pad_sequences(dataset['question_mask'], maxlen=self._max_text_length, value=0.0)
-        dataset['y'] = np.asarray(dataset['y'])
-
-        self.__train(
-                dataset['text'],
-                dataset['node_vectors'],
-                dataset['item_vector'],
-                dataset['question_vectors'],
-                dataset['question_mask'],
-                dataset['y'],
-                epochs=epochs,
-                batch_size=batch_size
-        )
+        self.__train(dataset, epochs=epochs, batch_size=batch_size)
 
     def __predict(self, text, node_X, item_vector, question_vectors, question_mask):
-        # Tokenize
-        tokenizer = DistilBertTokenizer.from_pretrained(self._distil_bert, do_lower_case=True, add_special_tokens=True,
-                max_length=self._max_text_length, pad_to_max_length=True)
-        question, attention_mask = self.__tokenize(text, tokenizer, self._max_text_length)
-
+        question, attention_mask = self.__tokenize(text, self._tokenizer, self._max_text_length)
         output = self._model.predict([question, attention_mask, question_mask, node_X])
         return output
 
@@ -126,9 +158,10 @@ class GCN_QA(object):
         return [1., 0.]
 
     def predict(self, text, node_X, item_vector, question_vectors, question_mask):
+        # in contrast to train(), no generator method is required, as the dev set is small enough to fit into memory also with padding
         text = [text]
         node_X = np.expand_dims(node_X, axis=0)
-        node_X = tf.keras.preprocessing.sequence.pad_sequences(node_X, maxlen=676, value=self._mask_value, padding='post', dtype='float64') # TODO maxlen
+        node_X = tf.keras.preprocessing.sequence.pad_sequences(node_X, maxlen=self._max_text_length, value=self._mask_value, padding='post', dtype='float64')
         question_vectors = np.expand_dims(question_vectors, axis=0)
         question_mask = np.expand_dims(question_mask, axis=0)
         question_mask = tf.keras.preprocessing.sequence.pad_sequences(question_mask, maxlen=self._max_text_length, value=0.0)

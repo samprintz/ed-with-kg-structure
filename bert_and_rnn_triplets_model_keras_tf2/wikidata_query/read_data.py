@@ -89,7 +89,7 @@ def get_graph_from_wikidata_id(wikidata_id, central_item):
                 cache_file.write(line)
 
     if not triplets:
-        raise RuntimeError(f"The graph of {wikidata_id} contains no suitable triplets.")
+        raise RuntimeError(f"The graph of {wikidata_id} contains no suitable triplets")
 
     graph = get_adjacency_matrices_and_vectors_given_triplets(triplets, central_item, _model)
     return graph
