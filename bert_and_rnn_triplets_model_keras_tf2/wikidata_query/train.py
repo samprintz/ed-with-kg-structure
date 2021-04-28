@@ -36,11 +36,8 @@ def train(data, model, saving_dir, name_prefix, epochs=20, batch_size=32):
             'y': [item['answer'] for item in data]
     }
 
-    model.train(dataset, epochs=epochs, batch_size=batch_size)
-
-    save_filename = f'{saving_dir}/{name_prefix}.tf'
-    _logger.info(f'Saving into {save_filename}')
-    model.save(save_filename)
+    saving_path = f'{saving_dir}/{name_prefix}'
+    model.train(dataset, saving_path, epochs, batch_size)
 
 
 if __name__ == '__main__':
@@ -49,7 +46,7 @@ if __name__ == '__main__':
     data = get_json_data(json_data)
     model = GCN_QA(dropout=1.0)
     train(data, model, _saving_dir,
-            name_prefix='model-20210426-2',
+            name_prefix='model-20210428-1',
             epochs=60,
             batch_size=32
     )

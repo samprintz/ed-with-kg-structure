@@ -8,7 +8,7 @@ from wikidata_query.read_data import get_json_data
 from wikidata_query.utils import get_words, infer_vector_from_word
 
 _path = os.path.dirname(__file__)
-_saving_dir = os.path.join(_path, '../data/')
+_saving_dir = os.path.join(_path, '../data')
 
 _logger = logging.getLogger(__name__)
 _logging_level = logging.INFO
@@ -61,6 +61,11 @@ if __name__ == '__main__':
     with open(_dataset_path) as f:
         json_data = json.load(f)
     data = get_json_data(json_data)
-    name_prefix='model-20210426-2'
-    model = GCN_QA.load(os.path.join(_path, f'../data/{name_prefix}.tf'))
-    test(data, model)
+    name_prefix='model-20210428-1'
+    model_dir = f'{_saving_dir}/{name_prefix}'
+    epochs = 60
+    for epoch in range(1, epochs + 1):
+        print(f'--------- Epoch {str(epoch)}/{str(epochs)} ---------')
+        model_path = f'{model_dir}/cp-{epoch:04d}.ckpt'
+        model = GCN_QA.load(model_path)
+        test(data, model)

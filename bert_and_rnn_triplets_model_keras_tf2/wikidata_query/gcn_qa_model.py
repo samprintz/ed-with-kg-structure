@@ -133,19 +133,23 @@ class GCN_QA(object):
 
             yield X, y
 
-    def __train(self, dataset, epochs=1, batch_size=1):
+    def __train(self, dataset, saving_dir, epochs=1, batch_size=1):
+        saving_path = saving_dir + "/cp-{epoch:04d}.ckpt"
+        save_model_callback = tf.keras.callbacks.ModelCheckpoint(filepath=saving_path,
+                save_weights_only=False)
         dataset_length = len(dataset['text'])
         steps_per_epoch = (dataset_length // batch_size)
         print(f'Training: epochs={epochs}, batch_size={batch_size}, dataset_length={dataset_length}, steps_per_epoch={steps_per_epoch}')
         history = self._model.fit(
                 self.__generate_data(dataset, batch_size),
                 epochs = epochs,
-                steps_per_epoch=steps_per_epoch
+                steps_per_epoch=steps_per_epoch,
+                callbacks=[save_model_callback]
         )
         return history
 
-    def train(self, dataset, epochs=20, batch_size=32):
-        self.__train(dataset, epochs=epochs, batch_size=batch_size)
+    def train(self, dataset, saving_dir, epochs=20, batch_size=32):
+        self.__train(dataset, saving_dir, epochs, batch_size)
 
     def __predict(self, text, node_X, item_vector, question_vectors, question_mask):
         question, attention_mask = self.__tokenize(text, self._tokenizer, self._max_text_length)
@@ -177,5 +181,6 @@ class GCN_QA(object):
     @classmethod
     def load(self, filename, dropout=1.0):
         model = GCN_QA(dropout)
+        #model._model.load_weights(filename)
         model._model = tf.keras.models.load_model(filename)
         return model
