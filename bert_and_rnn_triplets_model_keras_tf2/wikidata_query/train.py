@@ -10,6 +10,9 @@ from wikidata_query.utils import get_words, infer_vector_from_word
 _path = os.path.dirname(__file__)
 _saving_dir = os.path.join(_path, '../data')
 
+if not os.path.exists(_saving_dir):
+    os.makedirs(_saving_dir)
+
 _logger = logging.getLogger(__name__)
 _logging_level = logging.INFO
 logging.basicConfig(level=_logging_level, format="%(asctime)s: %(levelname)-1.1s %(name)s] %(message)s")

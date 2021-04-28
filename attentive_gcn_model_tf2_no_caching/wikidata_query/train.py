@@ -12,6 +12,9 @@ _saving_dir = os.path.join(_path, '../data/')
 _bucket_size = 10
 _minimum_trace = 10
 
+if not os.path.exists(_saving_dir):
+    os.makedirs(_saving_dir)
+
 
 def get_answers_and_questions_from_json(filename):
     questions_and_answers = []
@@ -93,7 +96,7 @@ if __name__ == '__main__':
     train(data,
           nn_model,
           _saving_dir,
-          name_prefix='model-20210426-3',
+          name_prefix='model-20210427-1',
           epochs=60,
           bucket_size=10,
           trace_every=1,

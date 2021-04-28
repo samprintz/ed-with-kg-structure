@@ -13,6 +13,9 @@ _saving_dir = os.path.join(_path, '../data')
 _bucket_size = 10
 _minimum_trace = 10
 
+if not os.path.exists(_saving_dir):
+    os.makedirs(_saving_dir)
+
 _logger = logging.getLogger(__name__)
 _logging_level = logging.INFO
 logging.basicConfig(level=_logging_level, format="%(asctime)s: %(levelname)-1.1s %(name)s:%(lineno)d] %(message)s")
@@ -112,7 +115,7 @@ if __name__ == '__main__':
     train(data,
           nn_model,
           _saving_dir,
-          name_prefix='model-20210423-2',
+          name_prefix='model-20210427-1',
           epochs=20,
           bucket_size=10,
           trace_every=1,
