@@ -106,16 +106,14 @@ def train(data, model, saving_dir, name_prefix, epochs=20, bucket_size=10, trace
 
 
 if __name__ == '__main__':
-    # TODO does utf-8 encoding changes something?
-    #with open(_dataset_path, encoding='utf8') as f:
-    with open(_dataset_path) as f:
+    with open(_dataset_path, encoding='utf8') as f:
         json_data = json.load(f)
     data = get_json_data(json_data)
     nn_model = GCN_QA(dropout=1.0)
     train(data,
           nn_model,
           _saving_dir,
-          name_prefix='model-20210427-1',
+          name_prefix='model-20210501-1',
           epochs=20,
           bucket_size=10,
           trace_every=1,

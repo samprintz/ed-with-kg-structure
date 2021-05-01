@@ -115,7 +115,7 @@ def test(data, model):
 
 if __name__ == '__main__':
     epochs = 20
-    name_prefix='model-20210420-3'
+    name_prefix='model-20210501-1'
     print(f'Model {name_prefix}, {epochs} epochs, dataset {_dataset_path}')
 
     with open(_dataset_path) as f:

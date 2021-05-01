@@ -108,7 +108,7 @@ def get_graph_from_wikidata_id(wikidata_id, central_item):
     if not triplets:
         raise RuntimeError(f'The graph of {wikidata_id} contains no suitable triplets')
 
-    _logger.info(f'Added {len(triplets)} triplets from the graph of {wikidata_id}')
+    _logger.debug(f'Added {len(triplets)} triplets from the graph of {wikidata_id}')
     return get_adjacency_matrices_and_vectors_given_triplets(triplets, central_item, _model)
 
 
@@ -236,7 +236,7 @@ def get_json_data(json_data):
     item_count = 0
     for json_item in json_data:
         item_count += 1
-        _logger.info(f'')
+        _logger.debug(f'')
         _logger.info(f'Item {item_count}/{count_all}')
         try:
             text = json_item['text']
