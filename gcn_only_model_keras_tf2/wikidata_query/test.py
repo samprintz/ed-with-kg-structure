@@ -10,6 +10,9 @@ _path = os.path.dirname(__file__)
 _saving_dir = os.path.join(_path, '../data/')
 _bucket_size = 10
 
+#_dataset_path = os.path.join(_path, '../../dataset/wikidata-disambig-dev.json')
+_dataset_path = os.path.join(_path, '../../dataset/wikidata-disambig-dev.sample.json')
+
 
 def get_answers_and_questions_from_json(filename):
     questions_and_answers = []
@@ -74,7 +77,10 @@ def test(data, model):
     false_positives = 0
     true_negatives = 0
     false_negatives = 0
+    count = 0
+    count_all = len(data)
     for item in data:
+        count += 1
         node_vectors = item['graph']['vectors']
         types = item['graph']['types']
         A_bw = item['graph']['A_bw']
@@ -94,6 +100,7 @@ def test(data, model):
             false_positives += 1
 #        except Exception as e:
 #            print('Exception caught during training: ' + str(e))
+        print(f'Item {str(count)}/{str(count_all)}: expected {str(expected)}, predicted {str(prediction)}')
     try:
         precision = true_positives / (true_positives + false_positives)
         recall = true_positives / (true_positives + false_negatives)
@@ -101,15 +108,20 @@ def test(data, model):
         print('precision', precision)
         print('recall', recall)
         print('f1', f1)
-    except:
-        print('Cannot compute precision and recall.')
+    except Exception as e:
+        print('Cannot compute precision and recall:')
+        print(str(e))
 
 
 if __name__ == '__main__':
-    with open(os.path.join(_path, '../../dataset/wikidata-disambig-test.json')) as f:
+    epochs = 20
+    name_prefix='model-20210430-2'
+    print(f'Model {name_prefix}, {epochs} epochs, dataset {_dataset_path}')
+
+    with open(_dataset_path) as f:
         json_data = json.load(f)
     data = get_json_data(json_data)
-    for i in range(0, 13, 1):
-        print(f'\n=== Testing iteration {i} ===')
-        nn_models = GCN_QA.load(os.path.join(_path, '../data/qa-' + str(i) + '.tf'))
-        test(data, nn_models)
+    for i in range(1, epochs + 1):
+        print(f'\n--------- Epoch {str(i)}/{str(epochs)} ---------')
+        model = GCN_QA.load(os.path.join(_path, f'../data/{name_prefix}/epoch-{str(i)}.tf'))
+        test(data, model)

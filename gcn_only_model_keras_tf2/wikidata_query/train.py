@@ -1,3 +1,4 @@
+import logging
 import os
 import json
 import numpy as np
@@ -8,9 +9,20 @@ from wikidata_query.read_data import get_json_data
 from wikidata_query.utils import bin_data_into_buckets, get_words, infer_vector_from_word
 
 _path = os.path.dirname(__file__)
-_saving_dir = os.path.join(_path, '../data/')
+_saving_dir = os.path.join(_path, '../data')
 _bucket_size = 10
 _minimum_trace = 10
+
+if not os.path.exists(_saving_dir):
+    os.makedirs(_saving_dir)
+
+_logger = logging.getLogger(__name__)
+_logging_level = logging.INFO
+logging.basicConfig(level=_logging_level, format="%(asctime)s: %(levelname)-1.1s %(name)s:%(lineno)d] %(message)s")
+
+#_dataset_path = os.path.join(_path, '../../dataset/wikidata-disambig-train.json')
+#_dataset_path = os.path.join(_path, '../../dataset/wikidata-disambig-train.medium.json')
+_dataset_path = os.path.join(_path, '../../dataset/wikidata-disambig-train.sample.json')
 
 
 def get_answers_and_questions_from_json(filename):
@@ -55,6 +67,8 @@ def train(data, model, saving_dir, name_prefix, epochs=20, bucket_size=10, trace
         print(f'--------- Epoch {str(i)}/{str(epochs)} ---------')
         bucket_count = 0
         item_count = 0
+        item_count_relevant = 0
+        item_count_not_relevant = 0
         item_count_all = sum([len(b) for b in random_buckets])
         for bucket in random_buckets:
             bucket_count += 1
@@ -69,6 +83,11 @@ def train(data, model, saving_dir, name_prefix, epochs=20, bucket_size=10, trace
                     question_vectors = item['question_vectors']
                     question_mask = item['question_mask']
                     graph_bucket.append((A_bw, node_vectors, types, item_vector, question_vectors, question_mask, y))
+                    _logger.debug(f'Item is {"not " if y == _is_not_relevant else ""}relevant ({str(y)})')
+                    if y == _is_relevant:
+                        item_count_relevant += 1
+                    else:
+                        item_count_not_relevant += 1
                 if len(graph_bucket) > 0:
                     loss = model.train(graph_bucket, 1)
                     item_count += len(graph_bucket)
@@ -79,21 +98,22 @@ def train(data, model, saving_dir, name_prefix, epochs=20, bucket_size=10, trace
             except Exception as e:
                 print('Exception caught during training: ' + str(e))
         print(f'\nAverage loss of epoch {str(i)}: {str(sum(losses)/len(losses))}')
+        print(f'Trained with {item_count_relevant} positive samples ({str(_is_relevant)}) and {item_count_not_relevant} negative samples ({str(_is_not_relevant)})')
         if i % trace_every == 0:
-            save_filename = saving_dir + name_prefix + '-' + str(i) + '.tf'
+            save_filename = f'{saving_dir}/{name_prefix}/epoch-{str(i)}.tf'
             sys.stderr.write('Saving into ' + save_filename + '\n')
             model.save(save_filename)
 
 
 if __name__ == '__main__':
-    with open(os.path.join(_path, '../../dataset/wikidata-disambig-train.sample.json'), encoding='utf8') as f:
+    with open(_dataset_path, encoding='utf8') as f:
         json_data = json.load(f)
     data = get_json_data(json_data)
     nn_model = GCN_QA(dropout=1.0)
     train(data,
           nn_model,
           _saving_dir,
-          name_prefix='model-20210419-3',
+          name_prefix='model-20210430-2',
           epochs=20,
           bucket_size=10,
           trace_every=1,

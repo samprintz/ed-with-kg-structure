@@ -9,7 +9,6 @@ from gensim import utils
 
 _is_relevant = [.0, 1.]
 _is_not_relevant = [1., 0.]
-_max_zero_vector_items_fraction = 0.1
 
 _logger = logging.getLogger(__name__)
 
@@ -29,18 +28,7 @@ def low_case(word):
 
 
 def infer_vector_from_word(model, word):
-    vector = np.zeros(300)
-    try:
-        vector = model[word]
-    except:
-        try:
-            vector = model[capitalize(word)]
-        except:
-            try:
-                vector = model[low_case(word)]
-            except:
-                pass
-    return vector
+    return model.infer_vector_from_word(word)
 
 
 def infer_vector_from_doc(model, text):
@@ -49,9 +37,8 @@ def infer_vector_from_doc(model, text):
     for word in words:
         vector += infer_vector_from_word(model, word)
     norm = np.linalg.norm(vector)
-    if norm == 0:
-        raise RuntimeWarning('No vector for this node: ' + text)
-    vector /= norm
+    if norm > 0:
+        vector /= norm
     return vector
 
 
@@ -61,10 +48,7 @@ def get_vectors_from_nodes_in_graph(g, model):
     for node in nodes:
         text = node.replace('_', ' ')
         text = text.split('|')[0]
-        try:
-            vectors.append(infer_vector_from_doc(model, text))
-        except:
-            vectors.append(model['item'])
+        vectors.append(infer_vector_from_doc(model, text))
     return np.array(vectors)
 
 
