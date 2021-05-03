@@ -14,6 +14,7 @@ from wikidata_query.utils import _is_not_relevant
 from wikidata_query.sentence_processor import get_adjacency_matrices_and_vectors_given_triplets
 from wikidata_query.glove import GloveModel
 from wikidata_query.wikidata_items import WikidataItems
+from wikidata_query.pbg import PBG
 
 _path = os.path.dirname(__file__)
 
@@ -28,6 +29,7 @@ logging.basicConfig(level=_logging_level, format="%(asctime)s: %(levelname)-1.1s
 _fast_mode = 0
 _model = GloveModel(_path, _fast_mode, _logger)
 _wikidata_items = WikidataItems(_path, _fast_mode, _logger)
+_pbg = PBG(_path, _logger, sample_mode=False, use_cache=False)
 _query = '''
 SELECT ?rel ?item ?rel2 ?to_item {
   wd:%s ?rel ?item
@@ -178,6 +180,7 @@ def infer_vector_from_vector_nodes(vector_list):
 
 
 def create_text_item_graph_dict(text, item, wikidata_id):
+    _logger.debug(f'Create text item graph dict for {wikidata_id}')
     text_item_graph_dict = {}
     text_item_graph_dict['text'] = text
     text_item_graph_dict['item'] = item
@@ -185,6 +188,7 @@ def create_text_item_graph_dict(text, item, wikidata_id):
     text_item_graph_dict['graph'] = get_graph_from_wikidata_id(wikidata_id, item)
     # text_item_graph_dict['item_vector'] = infer_vector_from_doc(_model, item)
     text_item_graph_dict['item_vector'] = infer_vector_from_vector_nodes(text_item_graph_dict['graph']['vectors'])
+    text_item_graph_dict['item_pbg'] = _pbg.get_item_embedding(wikidata_id)
     text_item_graph_dict['question_vectors'] = convert_text_into_vector_sequence(_model, text)
     text_item_graph_dict['question_mask'] = get_item_mask_for_words(text, item)
     return text_item_graph_dict

@@ -16,8 +16,10 @@ for gpu in gpu_devices:
 class GCN_QA(object):
     _max_text_length = 512
     _nodes_vocab_size = 300 * 3
+    _item_pbg_vocab_size = 200
     _question_vocab_size = 300
     _nodes_vector_size = 150
+    _item_pbg_vector_size = 150
     _question_vector_size = 150
     _bert_embedding_size = 768
     _hidden_layer1_size = 250
@@ -51,19 +53,16 @@ class GCN_QA(object):
         question_outputs = Dense(self._question_vector_size)(question_outputs)
         question_outputs = Activation('relu')(question_outputs)
 
-        # Part II: Entity graph node (as text) -> Bi-LSTM
-        fw_lstm = LSTM(self._memory_dim)
-        bw_lstm = LSTM(self._memory_dim, go_backwards=True)
+        # Part II: Entity -> PyTorch Big Graph embedding
+        input_item_pbg = Input(shape=(self._item_pbg_vocab_size), name='item_pbg')
+        item_pbg_outputs = Dense(self._item_pbg_vector_size)(input_item_pbg)
+        item_pbg_outputs = Activation('relu')(item_pbg_outputs)
 
-        input_nodes = Input(shape=(None, self._nodes_vocab_size), name='node_vectors')
-        masked_nodes = Masking(mask_value=self._mask_value)(input_nodes)
-        nodes_outputs = Bidirectional(layer=fw_lstm, backward_layer=bw_lstm)(masked_nodes)
-        nodes_outputs = Dense(self._nodes_vector_size)(nodes_outputs)
-        nodes_outputs = Activation('relu')(nodes_outputs)
+        input_nodes = Input(shape=(None, self._nodes_vocab_size), name='node_vectors') # not used
 
         # Part III: Comparator
         # concatenation size = _nodes_vector_size + _question_vector_size
-        concatenated = Concatenate(axis=1)([question_outputs, nodes_outputs])
+        concatenated = Concatenate(axis=1)([question_outputs, item_pbg_outputs])
         mlp_outputs = Dense(self._hidden_layer2_size)(concatenated)
         mlp_outputs = Activation('relu')(mlp_outputs)
         mlp_outputs = Dropout(0.0)(mlp_outputs)
@@ -74,7 +73,7 @@ class GCN_QA(object):
         # TODO Try different learning rate
         optimizer = tf.keras.optimizers.Adam(learning_rate=1e-4)
 
-        self._model = tf.keras.models.Model(inputs=[input_question, input_attention_mask, input_sf_mask, input_nodes], outputs=mlp_outputs)
+        self._model = tf.keras.models.Model(inputs=[input_question, input_attention_mask, input_sf_mask, input_item_pbg, input_nodes], outputs=mlp_outputs)
         self._model.get_layer('distilbert').trainable = False # make BERT layers untrainable
         self._model.compile(optimizer=optimizer, loss="binary_crossentropy", metrics=["accuracy"])
         #self._model.summary()
@@ -102,6 +101,7 @@ class GCN_QA(object):
                     'attention_mask': [],
                     'question_mask': [],
                     'node_vectors': [],
+                    'item_pbg': [],
                     'y': []
                 }
 
@@ -109,15 +109,16 @@ class GCN_QA(object):
             for b in range(batch_size):
                 if i == len(dataset['text']): # re-shuffle when processed whole dataset
                     i = 0
-                    lists = list(zip(dataset['text'], dataset['node_vectors'], dataset['question_mask'], dataset['y']))
+                    lists = list(zip(dataset['text'], dataset['node_vectors'], dataset['question_mask'], dataset['item_pbg'], dataset['y']))
                     random.shuffle(lists)
-                    dataset['text'], dataset['node_vectors'], dataset['question_mask'], dataset['y'] = zip(*lists)
+                    dataset['text'], dataset['node_vectors'], dataset['question_mask'], dataset['item_pbg'], dataset['y'] = zip(*lists)
                     #TODO rather stop iteration?
                     # raise StopIteration
                 # add sample
                 batch['text'].append(dataset['text'][i])
                 batch['node_vectors'].append(dataset['node_vectors'][i])
                 batch['question_mask'].append(dataset['question_mask'][i])
+                batch['item_pbg'].append(dataset['item_pbg'][i])
                 batch['y'].append(dataset['y'][i])
                 i += 1
 
@@ -129,6 +130,7 @@ class GCN_QA(object):
                     batch['question_mask'], maxlen=self._max_text_length, value=0.0)
             X['question'], X['attention_mask'] = self.__tokenize(
                     batch['text'], self._tokenizer, self._max_text_length)
+            X['item_pbg'] = np.asarray(batch['item_pbg'])
             y = np.asarray(batch['y'])
 
             yield X, y
@@ -151,9 +153,9 @@ class GCN_QA(object):
     def train(self, dataset, saving_dir, epochs=20, batch_size=32):
         self.__train(dataset, saving_dir, epochs, batch_size)
 
-    def __predict(self, text, node_X, item_vector, question_vectors, question_mask):
+    def __predict(self, text, node_X, item_vector, item_pbg, question_vectors, question_mask):
         question, attention_mask = self.__tokenize(text, self._tokenizer, self._max_text_length)
-        output = self._model.predict([question, attention_mask, question_mask, node_X])
+        output = self._model.predict([question, attention_mask, question_mask, item_pbg, node_X])
         return output
 
     def __standardize_item(self, item):
@@ -161,16 +163,17 @@ class GCN_QA(object):
             return [0., 1.]
         return [1., 0.]
 
-    def predict(self, text, node_X, item_vector, question_vectors, question_mask):
+    def predict(self, text, node_X, item_vector, item_pbg, question_vectors, question_mask):
         # in contrast to train(), no generator method is required, as the dev set is small enough to fit into memory also with padding
         text = [text]
         node_X = np.expand_dims(node_X, axis=0)
         node_X = tf.keras.preprocessing.sequence.pad_sequences(node_X, maxlen=self._max_text_length, value=self._mask_value, padding='post', dtype='float64')
+        item_pbg = np.expand_dims(item_pbg, axis=0)
         question_vectors = np.expand_dims(question_vectors, axis=0)
         question_mask = np.expand_dims(question_mask, axis=0)
         question_mask = tf.keras.preprocessing.sequence.pad_sequences(question_mask, maxlen=self._max_text_length, value=0.0)
 
-        output = self.__predict(text, node_X, item_vector, question_vectors, question_mask)
+        output = self.__predict(text, node_X, item_vector, item_pbg, question_vectors, question_mask)
         return self.__standardize_item(output[0])
 
     # Loading and saving functions

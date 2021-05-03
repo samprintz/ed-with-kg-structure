@@ -17,9 +17,9 @@ _logger = logging.getLogger(__name__)
 _logging_level = logging.INFO
 logging.basicConfig(level=_logging_level, format="%(asctime)s: %(levelname)-1.1s %(name)s] %(message)s")
 
-_dataset_path = os.path.join(_path, '../../dataset/wikidata-disambig-train.json')
+#_dataset_path = os.path.join(_path, '../../dataset/wikidata-disambig-train.json')
 #_dataset_path = os.path.join(_path, '../../dataset/wikidata-disambig-train.medium.json')
-#_dataset_path = os.path.join(_path, '../../dataset/wikidata-disambig-train.sample.json')
+_dataset_path = os.path.join(_path, '../../dataset/wikidata-disambig-train.sample.json')
 
 
 _is_relevant = [.0, 1.]
@@ -31,6 +31,7 @@ def train(data, model, saving_dir, name_prefix, epochs=20, batch_size=32):
             'text': [item['text'] for item in data],
             'node_vectors': [item['graph']['vectors'] for item in data],
             'item_vector': [item['item_vector'] for item in data],
+            'item_pbg': [item['item_pbg'] for item in data],
             'question_vectors': [item['question_vectors'] for item in data],
             'question_mask': [item['question_mask'] for item in data],
             'y': [item['answer'] for item in data]
@@ -46,7 +47,7 @@ if __name__ == '__main__':
     data = get_json_data(json_data)
     model = GCN_QA(dropout=1.0)
     train(data, model, _saving_dir,
-            name_prefix='model-20210428-1',
-            epochs=60,
+            name_prefix='model-20210503-1',
+            epochs=20,
             batch_size=32
     )
