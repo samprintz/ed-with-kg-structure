@@ -65,6 +65,15 @@ class GCN_QA(object):
         gcn_output = GCNConv(self._gcn_channels, activation='relu',
                 dropout_rate=self._gcn_dropout)([concatenated_for_gcn, atilde_inputs])
         gcn_output = Dropout(self._gcn_dropout)(gcn_output)
+        gcn_output = GCNConv(self._gcn_channels, activation='relu',
+                dropout_rate=self._gcn_dropout)([gcn_output, atilde_inputs])
+        gcn_output = Dropout(self._gcn_dropout)(gcn_output)
+        gcn_output = GCNConv(self._gcn_channels, activation='relu',
+                dropout_rate=self._gcn_dropout)([gcn_output, atilde_inputs])
+        gcn_output = Dropout(self._gcn_dropout)(gcn_output)
+        gcn_output = GCNConv(self._gcn_channels, activation='relu',
+                dropout_rate=self._gcn_dropout)([gcn_output, atilde_inputs])
+        gcn_output = Dropout(self._gcn_dropout)(gcn_output)
 
         gcn_output_transposed = tf.transpose(gcn_output, perm=[1, 0, 2]) # to (n_nodes, batch, n_node_features)
         first_node = gcn_output_transposed[0] # use only first node
