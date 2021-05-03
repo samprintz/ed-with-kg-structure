@@ -79,7 +79,7 @@ class PBG():
 
 
     def __get_vector_from_cache(self, item_id):
-        cache_file = f'{self._cache_dir}{item_id}.txt'
+        cache_file = f'{self._cache_dir}/{item_id}.txt'
         if not os.path.exists(cache_file):
             return None
         # TODO Change to np.loadtxt()
