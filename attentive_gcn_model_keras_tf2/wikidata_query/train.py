@@ -113,7 +113,7 @@ if __name__ == '__main__':
     train(data,
           nn_model,
           _saving_dir,
-          name_prefix='model-20210501-1',
+          name_prefix='model-20210503-1',
           epochs=20,
           bucket_size=10,
           trace_every=1,

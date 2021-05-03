@@ -65,6 +65,15 @@ class GCN_QA(object):
         gat_output = GATConv(self._gat_channels, activation='relu',
                 dropout_rate=self._gat_dropout)([concatenated_for_gat, atilde_inputs])
         gat_output = Dropout(self._gat_dropout)(gat_output)
+        gat_output = GATConv(self._gat_channels, activation='relu',
+                dropout_rate=self._gat_dropout)([gat_output, atilde_inputs])
+        gat_output = Dropout(self._gat_dropout)(gat_output)
+        gat_output = GATConv(self._gat_channels, activation='relu',
+                dropout_rate=self._gat_dropout)([gat_output, atilde_inputs])
+        gat_output = Dropout(self._gat_dropout)(gat_output)
+        gat_output = GATConv(self._gat_channels, activation='relu',
+                dropout_rate=self._gat_dropout)([gat_output, atilde_inputs])
+        gat_output = Dropout(self._gat_dropout)(gat_output)
 
         gat_output_transposed = tf.transpose(gat_output, perm=[1, 0, 2]) # to (n_nodes, batch, n_node_features)
         first_node = gat_output_transposed[0] # use only first node
