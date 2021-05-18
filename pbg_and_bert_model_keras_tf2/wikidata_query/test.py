@@ -14,8 +14,8 @@ _logger = logging.getLogger(__name__)
 _logging_level = logging.INFO
 logging.basicConfig(level=_logging_level, format="%(asctime)s: %(levelname)-1.1s %(name)s] %(message)s")
 
-#_dataset_path = os.path.join(_path, '../../dataset/wikidata-disambig-dev.json')
-_dataset_path = os.path.join(_path, '../../dataset/wikidata-disambig-dev.sample.json')
+#_dataset_path = os.path.join(_path, '../../dataset/wikidata-disambig-test.json')
+_dataset_path = os.path.join(_path, '../../dataset/wikidata-disambig-test.sample.json')
 
 
 _is_relevant = [.0, 1.]
@@ -62,7 +62,7 @@ if __name__ == '__main__':
     with open(_dataset_path) as f:
         json_data = json.load(f)
     data = get_json_data(json_data)
-    name_prefix='model-20210503-1'
+    name_prefix='model-20210518-2'
     model_dir = f'{_saving_dir}/{name_prefix}'
     epochs = 20
     for epoch in range(1, epochs + 1):

@@ -135,23 +135,34 @@ class GCN_QA(object):
 
             yield X, y
 
-    def __train(self, dataset, saving_dir, epochs=1, batch_size=1):
+    def __train(self, datasets, saving_dir, epochs=1, batch_size=1):
         saving_path = saving_dir + "/cp-{epoch:04d}.ckpt"
         save_model_callback = tf.keras.callbacks.ModelCheckpoint(filepath=saving_path,
                 save_weights_only=False)
-        dataset_length = len(dataset['text'])
-        steps_per_epoch = (dataset_length // batch_size)
-        print(f'Training: epochs={epochs}, batch_size={batch_size}, dataset_length={dataset_length}, steps_per_epoch={steps_per_epoch}')
+
+        # train dataset
+        dataset_train = datasets[0]
+        dataset_length_train = len(dataset_train['text'])
+        steps_per_epoch = dataset_length_train // batch_size
+        # validation dataset
+        dataset_val = datasets[1]
+        dataset_length_val = len(dataset_val['text'])
+        validation_steps_per_epoch = dataset_length_val // batch_size
+
+        print(f'Training: epochs={epochs}, batch_size={batch_size}, dataset_length_train={dataset_length_train}, dataset_length_val={dataset_length_val}, steps_per_epoch={steps_per_epoch}')
+
         history = self._model.fit(
-                self.__generate_data(dataset, batch_size),
+                self.__generate_data(dataset_train, batch_size),
                 epochs = epochs,
                 steps_per_epoch=steps_per_epoch,
+                validation_data=self.__generate_data(dataset_val, batch_size),
+                validation_steps=validation_steps_per_epoch,
                 callbacks=[save_model_callback]
         )
         return history
 
-    def train(self, dataset, saving_dir, epochs=20, batch_size=32):
-        self.__train(dataset, saving_dir, epochs, batch_size)
+    def train(self, datasets, saving_dir, epochs=20, batch_size=32):
+        self.__train(datasets, saving_dir, epochs, batch_size)
 
     def __predict(self, text, node_X, item_vector, item_pbg, question_vectors, question_mask):
         question, attention_mask = self.__tokenize(text, self._tokenizer, self._max_text_length)
