@@ -1,3 +1,4 @@
+import logging
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1' # INFO messages are not printed
 
@@ -11,6 +12,8 @@ from transformers import DistilBertTokenizer, TFDistilBertForSequenceClassificat
 gpu_devices = tf.config.experimental.list_physical_devices('GPU')
 for gpu in gpu_devices:
     tf.config.experimental.set_memory_growth(gpu, True)
+
+_logger = logging.getLogger()
 
 
 class GCN_QA(object):
@@ -147,7 +150,9 @@ class GCN_QA(object):
         dataset_length_val = len(dataset_val['text'])
         validation_steps_per_epoch = dataset_length_val // batch_size
 
-        print(f'Training: epochs={epochs}, batch_size={batch_size}, dataset_length_train={dataset_length_train}, dataset_length_val={dataset_length_val}, steps_per_epoch={steps_per_epoch}')
+        _logger.info('')
+        _logger.info('=== Training settings ===')
+        _logger.info(f'epochs={epochs}, batch_size={batch_size}, dataset_length_train={dataset_length_train}, dataset_length_val={dataset_length_val}, steps_per_epoch={steps_per_epoch}')
 
         history = self._model.fit(
                 self.__generate_data(dataset_train, batch_size),
