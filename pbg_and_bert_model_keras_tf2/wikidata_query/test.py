@@ -14,6 +14,12 @@ dirs = {
     'datasets' : os.path.join(os.getcwd(), '..', 'dataset')
     }
 
+# Create directories
+for path in dirs.values():
+    if not os.path.exists(path):
+        print(f'Create directory {path}')
+        os.makedirs(path)
+
 datasets = {
     #'test' : os.path.join(dirs['datasets'], 'wikidata-disambig-test.json')
     'test' : os.path.join(dirs['datasets'], 'wikidata-disambig-test.sample.json')
@@ -36,21 +42,18 @@ logging.basicConfig(level=log_level, format=log_format,
         handlers=[logging.FileHandler(log_path), logging.StreamHandler()])
 _logger = logging.getLogger()
 
-# Create directories
-for path in dirs.values():
-    if not os.path.exists(path):
-        _logger.info(f'Create directory {path}')
-        os.makedirs(path)
-
 
 def test(data, model):
     true_positives = 0
     false_positives = 0
     true_negatives = 0
     false_negatives = 0
+    count = 0
+    count_all = len(data)
     for item in data:
+        count += 1
         expected = item['answer']
-        text = item['text']
+        text = item['text'].strip()
         mention = item['item']
         wikidata_id = item['wikidata_id']
         node_vectors = item['graph']['vectors']
@@ -62,16 +65,16 @@ def test(data, model):
         prediction = model.predict(text, node_vectors, item_vector, item_pbg, question_vectors, question_mask)
         if prediction == expected and expected == _is_relevant:
             true_positives += 1
-            _logger.info(f'TP: Predicted {wikidata_id} consistent for "{mention}" in "{text}"')
+            _logger.info(f'Item {str(count)}/{str(count_all)}: [TP] Predicted {wikidata_id} consistent for "{mention}" in "{text}"')
         if prediction == expected and expected == _is_not_relevant:
             true_negatives += 1
-            _logger.info(f'TN: Predicted {wikidata_id} not consistent for "{mention}" in "{text}"')
+            _logger.info(f'Item {str(count)}/{str(count_all)}: [TN] Predicted {wikidata_id} not consistent for "{mention}" in "{text}"')
         if prediction != expected and expected == _is_relevant:
             false_negatives += 1
-            _logger.info(f'FN: Predicted {wikidata_id} not consistent for "{mention}" in "{text}"')
+            _logger.info(f'Item {str(count)}/{str(count_all)}: [FN] Predicted {wikidata_id} not consistent for "{mention}" in "{text}"')
         if prediction != expected and expected == _is_not_relevant:
             false_positives += 1
-            _logger.info(f'FP: Predicted {wikidata_id} consistent for "{mention}" in "{text}"')
+            _logger.info(f'Item {str(count)}/{str(count_all)}: [FP] Predicted {wikidata_id} consistent for "{mention}" in "{text}"')
 #        except Exception as e:
 #            print('Exception caught during training: ' + str(e))
     try:
@@ -83,12 +86,13 @@ def test(data, model):
         _logger.info(f'F1 {f1}')
     except:
         _logger.warning('Cannot compute precision and recall.')
+        _logger.warning(str(e))
 
 
 if __name__ == '__main__':
     with open(datasets['test']) as f:
         json_data = json.load(f)
-    data = get_json_data(json_data)
+    data = get_json_data(json_data, use_bert=True, use_pbg=True)
 
     # Test
     for epoch in range(1, _epochs + 1):

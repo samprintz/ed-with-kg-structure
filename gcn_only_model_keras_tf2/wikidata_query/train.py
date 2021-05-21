@@ -68,10 +68,12 @@ def train(data, model, saving_dir, name_prefix, epochs=20, batch_size=32):
 
 if __name__ == '__main__':
     # train dataset
+    _logger.info("=== Load training dataset ===")
     with open(datasets['train'], encoding='utf8') as f:
         json_data_train = json.load(f)
     data_train = get_json_data(json_data_train, use_bert=False, use_pbg=False) # TODO
     # validation dataset
+    _logger.info("=== Load validation dataset ===")
     with open(datasets['val'], encoding='utf8') as f:
         json_data_val = json.load(f)
     data_val = get_json_data(json_data_val, use_bert=False, use_pbg=False) # TODO

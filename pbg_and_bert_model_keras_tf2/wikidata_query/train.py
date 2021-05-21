@@ -14,6 +14,12 @@ dirs = {
     'datasets' : os.path.join(os.getcwd(), '..', 'dataset')
     }
 
+# Create directories
+for path in dirs.values():
+    if not os.path.exists(path):
+        print(f'Create directory {path}')
+        os.makedirs(path)
+
 datasets = {
     #'train' : os.path.join(dirs['datasets'], 'wikidata-disambig-train.json'),
     #'train' : os.path.join(dirs['datasets'], 'wikidata-disambig-train.medium.json'),
@@ -40,12 +46,6 @@ logging.basicConfig(level=log_level, format=log_format,
         handlers=[logging.FileHandler(log_path), logging.StreamHandler()])
 _logger = logging.getLogger()
 
-# Create directories
-for path in dirs.values():
-    if not os.path.exists(path):
-        _logger.info(f'Create directory {path}')
-        os.makedirs(path)
-
 
 def train(data, model, saving_dir, name_prefix, epochs=20, batch_size=32):
     datasets = []
@@ -67,13 +67,15 @@ def train(data, model, saving_dir, name_prefix, epochs=20, batch_size=32):
 
 if __name__ == '__main__':
     # train dataset
+    _logger.info("=== Load training dataset ===")
     with open(datasets['train'], encoding='utf8') as f:
         json_data_train = json.load(f)
-    data_train = get_json_data(json_data_train, pbg=True)
+    data_train = get_json_data(json_data_train, use_bert=True, use_pbg=True)
     # validation dataset
+    _logger.info("=== Load validation dataset ===")
     with open(datasets['val'], encoding='utf8') as f:
         json_data_val = json.load(f)
-    data_val = get_json_data(json_data_val)
+    data_val = get_json_data(json_data_val, use_bert=True, use_pbg=True)
     data = [data_train, data_val]
 
     # train
