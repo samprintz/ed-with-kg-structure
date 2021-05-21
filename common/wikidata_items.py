@@ -64,7 +64,7 @@ class WikidataItems:
         try:
             return self._model[item_id]
         except:
-            self._logger.warning(f'Could not find name for "{item_id}"')
+            self._logger.debug(f'Could not find name for "{item_id}"')
             return None
 
 
