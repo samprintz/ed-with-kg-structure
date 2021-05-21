@@ -146,8 +146,13 @@ def convert_text_into_vector_sequence(model, text):
     return vectors
 
 
-def get_item_mask_for_words(text, item):
-    embedding_size = 768 # for bert; 200 for LSTM
+def get_item_mask_for_words(text, item, use_bert=False):
+    # embedding_size = 768 for bert; 200 for LSTM
+    if use_bert:
+        embedding_size = 768
+    else:
+        embedding_size = 200
+
     words = get_words(text)
     types = []
     words_in_item = get_words(item.lower())
@@ -220,7 +225,7 @@ def infer_vector_from_vector_nodes(vector_list):
     return vector
 
 
-def create_text_item_graph_dict(text, item, wikidata_id, pbg):
+def create_text_item_graph_dict(text, item, wikidata_id, use_bert, use_pbg):
     _logger.debug(f'Create text item graph dict for {wikidata_id}')
     text_item_graph_dict = {}
     text_item_graph_dict['text'] = text
@@ -229,10 +234,10 @@ def create_text_item_graph_dict(text, item, wikidata_id, pbg):
     text_item_graph_dict['graph'] = get_graph_from_wikidata_id(wikidata_id, item)
     # text_item_graph_dict['item_vector'] = infer_vector_from_doc(_model, item)
     text_item_graph_dict['item_vector'] = infer_vector_from_vector_nodes(text_item_graph_dict['graph']['vectors'])
-    if pbg:
+    if use_pbg:
         text_item_graph_dict['item_pbg'] = _pbg.get_item_embedding(wikidata_id)
     text_item_graph_dict['question_vectors'] = convert_text_into_vector_sequence(_model, text)
-    text_item_graph_dict['question_mask'] = get_item_mask_for_words(text, item)
+    text_item_graph_dict['question_mask'] = get_item_mask_for_words(text, item, use_bert)
     return text_item_graph_dict
 
 
@@ -255,20 +260,24 @@ def get_json_data_many_wrong_ids(json_data):
     return data
 
 
-def get_json_data(json_data, pbg=False):
+def get_json_data(json_data, use_bert=False, use_pbg=False):
     data = []
+    count_all = len(json_data)
+    count_item = 0
     for json_item in json_data:
+        count_item += 1
+        _logger.info(f'Item {count_item}/{count_all}')
         try:
             text = json_item['text']
             item = json_item['string']
 
             wikidata_id = json_item['correct_id']
-            text_item_graph_dict = create_text_item_graph_dict(text, item, wikidata_id, pbg)
+            text_item_graph_dict = create_text_item_graph_dict(text, item, wikidata_id, use_bert, use_pbg)
             text_item_graph_dict['answer'] = _is_relevant
             data.append(text_item_graph_dict)
 
             wikidata_id = json_item['wrong_id']
-            text_item_graph_dict = create_text_item_graph_dict(text, item, wikidata_id, pbg)
+            text_item_graph_dict = create_text_item_graph_dict(text, item, wikidata_id, use_bert, use_pbg)
             text_item_graph_dict['answer'] = _is_not_relevant
             data.append(text_item_graph_dict)
         except Exception as e:
