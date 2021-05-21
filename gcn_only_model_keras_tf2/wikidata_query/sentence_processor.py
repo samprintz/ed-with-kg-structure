@@ -25,7 +25,7 @@ def get_adjacency_matrices_and_vectors_given_triplets(triplets, central_item, mo
         central_node_index = nodelist.index(central_item + '|NODE')
         nodelist[central_node_index], nodelist[0] = nodelist[0], nodelist[central_node_index]
     except Exception as e:
-        print('nodelist:', e)
+        #print('nodelist:', e)
         raise e
     A_bw = np.array(nx.to_numpy_matrix(g_bw, nodelist=nodelist))
     return {'A_bw': A_bw,

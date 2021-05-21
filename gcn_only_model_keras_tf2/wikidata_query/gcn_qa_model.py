@@ -1,6 +1,7 @@
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1' # INFO messages are not printed
 
+import random
 import sys
 import tensorflow as tf
 import numpy as np
@@ -13,6 +14,7 @@ for gpu in gpu_devices:
 
 
 class GCN_QA(object):
+    _max_text_length = 512
     _nodes_vocab_size = 300
     _question_vocab_size = 300
     _nodes_vector_size = 150
@@ -32,6 +34,7 @@ class GCN_QA(object):
 
     _memory_dim = 100
     _stack_dimension = 2
+    _mask_value = -10.0
 
     def __init__(self, dropout=1.0):
         tf.compat.v1.reset_default_graph()
@@ -40,7 +43,8 @@ class GCN_QA(object):
         fw_gru = GRU(self._memory_dim, return_sequences=True)
         bw_gru = GRU(self._memory_dim, return_sequences=True, go_backwards=True)
 
-        question_inputs = Input(shape=(None, self._question_vocab_size), name='question')
+        #question_inputs = Input(shape=(None, self._question_vocab_size), name='question') # TODO required by BERT
+        question_inputs = Input(shape=(None, self._question_vocab_size), name='question_vectors')
         question_mask_inputs = Input(shape=(None, self._mask_size), name='question_mask')
         question_outputs = Bidirectional(layer=fw_gru, backward_layer=bw_gru)(question_inputs)
         question_outputs_masked = tf.math.reduce_mean(tf.math.multiply(question_mask_inputs, question_outputs), axis=1)
@@ -100,42 +104,114 @@ class GCN_QA(object):
         identity = np.identity(num_nodes)
         return identity + A
 
-    def __train(self, Atilde_fw, node_X, types, item_vector, question_vectors, question_mask, y, epochs=1, batch_size=1):
-        history = self._model.fit([question_vectors, question_mask, node_X, types, Atilde_fw], y,
-                epochs=epochs, batch_size=batch_size)
+    def __tokenize(self, sentences, tokenizer, max_length):
+        input_ids, input_masks = [], []
+        for sentence in sentences:
+            inputs = tokenizer.encode_plus(sentence, add_special_tokens=True, max_length=max_length,
+                    padding='max_length', return_attention_mask=True)
+            input_ids.append(inputs['input_ids'])
+            input_masks.append(inputs['attention_mask'])
+        return np.asarray(input_ids, dtype='int32'), np.asarray(input_masks, dtype='int32')
+
+    def __generate_data(self, dataset, batch_size):
+        dataset.pop('item_vector')
+        # dataset.pop('question_vectors') # TODO required by GCN, GAT
+
+        # https://stackoverflow.com/questions/46493419/use-a-generator-for-keras-model-fit-generator
+        i = 0
+        while True:
+            # get a batch from the shuffled dataset, preprocess it, and give it to the model
+            batch = {
+                    'text': [],
+                    #'question': [], # TODO required by BERT
+                    #'attention_mask': [], # TODO required by BERT
+                    'question_vectors': [], # TODO required by GRU
+                    'question_mask': [],
+                    'node_vectors': [],
+                    'node_type': [], # required by GCN, GAT
+                    'A_fw': [], # required by GCN, GAT
+                    'y': []
+                }
+
+            # draw a (ordered) batch from the (shuffled) dataset
+            for b in range(batch_size):
+                if i == len(dataset['text']): # re-shuffle when processed whole dataset
+                    i = 0
+                    lists = list(zip(
+                            dataset['text'],
+                            dataset['question_vectors'],
+                            dataset['question_mask'],
+                            dataset['node_vectors'],
+                            dataset['node_type'],
+                            dataset['A_fw'],
+                            dataset['y']))
+                    random.shuffle(lists)
+                    dataset['text'], dataset['question_vectors'], dataset['question_mask'], dataset['node_vectors'], dataset['node_type'], dataset['A_fw'], dataset['y'] = zip(*lists)
+                    #TODO rather stop iteration?
+                    # raise StopIteration
+                # add sample
+                batch['text'].append(dataset['text'][i])
+                batch['question_vectors'].append(dataset['question_vectors'][i])
+                batch['question_mask'].append(dataset['question_mask'][i])
+                batch['node_vectors'].append(dataset['node_vectors'][i])
+                batch['node_type'].append(dataset['node_type'][i])
+                batch['A_fw'].append(dataset['A_fw'][i])
+                batch['y'].append(dataset['y'][i])
+                i += 1
+
+            # preprocess batch (array, pad, tokenize)
+            X = {}
+            X['question_vectors'] = np.asarray(batch['question_vectors'])
+            X['question_mask'] = np.asarray(batch['question_mask'])
+            X['node_vectors'] = np.asarray(batch['node_vectors'])
+            #X['question_vectors'] = tf.keras.preprocessing.sequence.pad_sequences(
+            #        batch['question_vectors'], maxlen=self._max_text_length, value=0.0)
+            #X['question_mask'] = tf.keras.preprocessing.sequence.pad_sequences(
+            #        batch['question_mask'], maxlen=self._max_text_length, value=0.0)
+            #X['node_vectors'] = tf.keras.preprocessing.sequence.pad_sequences(
+            #        batch['node_vectors'], value=self._mask_value, padding='post', dtype='float64')
+            X['node_type'] = np.asarray(batch['node_type'])
+            #X['question'], X['attention_mask'] = self.__tokenize( # TODO tokenization required by BERT
+            #        batch['text'], self._tokenizer, self._max_text_length)
+            X['atilde_fw'] = np.asarray([self._add_identity(item) for item in batch['A_fw']])
+            y = np.asarray(batch['y'])
+
+            yield X, y
+
+    def __train(self, datasets, saving_dir, epochs=1, batch_size=1):
+        saving_path = saving_dir + "/cp-{epoch:04d}.ckpt"
+        save_model_callback = tf.keras.callbacks.ModelCheckpoint(filepath=saving_path,
+                save_weights_only=True)
+        #save_model_callback = tf.keras.callbacks.ModelCheckpoint(filepath=saving_path,
+        #        save_weights_only=False)
+
+        # train dataset
+        dataset_train = datasets[0]
+        dataset_length_train = len(dataset_train['text'])
+        steps_per_epoch = dataset_length_train // batch_size
+        # validation dataset
+        dataset_val = datasets[1]
+        dataset_length_val = len(dataset_val['text'])
+        validation_steps_per_epoch = dataset_length_val // batch_size
+
+        print(f'Training: epochs={epochs}, batch_size={batch_size}, dataset_length_train={dataset_length_train}, dataset_length_val={dataset_length_val}, steps_per_epoch={steps_per_epoch}')
+
+        history = self._model.fit(
+                self.__generate_data(dataset_train, batch_size),
+                epochs = epochs,
+                steps_per_epoch=steps_per_epoch,
+                validation_data=self.__generate_data(dataset_val, batch_size),
+                validation_steps=validation_steps_per_epoch,
+                callbacks=[save_model_callback]
+        )
         return history
 
-    def train(self, data, epochs=20):
-        for epoch in range(epochs):
-            A_fw = [data[i][0] for i in range(len(data))]
-            node_X = [data[i][1] for i in range(len(data))]
-            types = [data[i][2] for i in range(len(data))]
-            item_vector = [data[i][3] for i in range(len(data))]
-            question_vectors = [data[i][4] for i in range(len(data))]
-            question_mask = [data[i][5] for i in range(len(data))]
-            y = [data[i][6] for i in range(len(data))]
+    def train(self, datasets, saving_dir, epochs=20, batch_size=32):
+        self.__train(datasets, saving_dir, epochs, batch_size)
 
-            Atilde_fw = np.asarray([self._add_identity(item) for item in A_fw])
-            node_X = np.asarray(node_X)
-            types = np.asarray(types)
-            item_vector = np.asarray(item_vector)
-            question_vectors = np.asarray(question_vectors)
-            question_mask = np.asarray(question_mask)
-            y = np.asarray(y)
-
-            history = self.__train(Atilde_fw, node_X, types, item_vector, question_vectors, question_mask, y, epochs)
-            loss = history.history['loss'][0]
-            return loss
-
-    def __predict(self, A_fw, node_X, types, item_vector, question_vectors, question_mask):
-        node_X = np.array(node_X)
-        Atilde_fw = np.array([self._add_identity(item) for item in A_fw])
-        types = np.array(types)
-        item_vector = np.asarray(item_vector)
-        question_vectors = np.array(question_vectors)
-        question_mask = np.array(question_mask)
-
-        output = self._model.predict([question_vectors, question_mask, node_X, types, Atilde_fw])
+    def __predict(self, Atilde_fw, node_X, node_type, question_vectors, question_mask):
+        #question, attention_mask = self.__tokenize(text, self._tokenizer, self._max_text_length) # required by BERT
+        output = self._model.predict([question_vectors, question_mask, node_X, node_type, Atilde_fw])
         return output
 
     def __standardize_item(self, item):
@@ -143,13 +219,22 @@ class GCN_QA(object):
             return [0., 1.]
         return [1., 0.]
 
-    def predict(self, A_fw, node_X, types, item_vector, question_vectors, question_mask):
-        output = self.__predict([A_fw], [node_X], [types], [item_vector], [question_vectors], [question_mask])
+    def predict(self, A_fw, node_X, node_type, question_vectors, question_mask):
+        # in contrast to train(), no generator method is required, as the dev set is small enough to fit into memory also with padding
+        node_X = np.expand_dims(node_X, axis=0)
+        A_fw = np.expand_dims(A_fw, axis=0)
+        Atilde_fw = np.array([self._add_identity(item) for item in A_fw])
+        node_type = np.expand_dims(node_type, axis=0)
+        question_vectors = np.expand_dims(question_vectors, axis=0)
+        question_mask = np.expand_dims(question_mask, axis=0)
+
+        output = self.__predict(Atilde_fw, node_X, node_type, question_vectors, question_mask)
         return self.__standardize_item(output[0])
 
 
     # Loading and saving functions
 
+    # TODO Not used anymore (?) only the save_model_callback above
     def save(self, filename):
         saver = self._model.save_weights(filename)
         #saver = self._model.save(filename)
