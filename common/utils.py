@@ -118,3 +118,14 @@ def bin_data_into_buckets(data, batch_size):
         for chunk in chunks:
             buckets.append(chunk)
     return buckets
+
+def log_experiment_settings(settings, is_test=False):
+    _logger.info('')
+    if is_test:
+        _logger.info('=== TEST SETTINGS ===')
+    else:
+        _logger.info('=== TRAIN SETTINGS ===')
+
+    for key, value in settings.items():
+        _logger.info(f'{key}={value}')
+    _logger.info('')

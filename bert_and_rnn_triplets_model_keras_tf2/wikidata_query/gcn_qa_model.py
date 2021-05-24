@@ -13,8 +13,6 @@ gpu_devices = tf.config.experimental.list_physical_devices('GPU')
 for gpu in gpu_devices:
     tf.config.experimental.set_memory_growth(gpu, True)
 
-_logger = logging.getLogger()
-
 
 class GCN_QA(object):
     _max_text_length = 512
@@ -31,8 +29,16 @@ class GCN_QA(object):
     _memory_dim = 100
     _mask_value = -10.0
 
-    def __init__(self, dropout=1.0):
+    def __init__(self, config, dropout=1.0):
         tf.compat.v1.reset_default_graph()
+        self._config = config
+
+        # Logging
+        self._logger = logging.getLogger(__name__) # own logger
+        self._tf_logger = tf.get_logger() # TensorFlow logger
+        self._tf_logger.handlers = [] # remove the original handler from the TensorFlow logger
+        logging.basicConfig(level=self._config.log_level, format=self._config.log_format,
+                handlers=[logging.FileHandler(self._config.log_path), logging.StreamHandler()])
 
         # Tokenizer
         self._tokenizer = DistilBertTokenizer.from_pretrained(self._distil_bert, do_lower_case=True,
@@ -140,6 +146,9 @@ class GCN_QA(object):
         saving_path = saving_dir + "/cp-{epoch:04d}.ckpt"
         save_model_callback = tf.keras.callbacks.ModelCheckpoint(filepath=saving_path,
                 save_weights_only=False)
+        logging_callback = tf.keras.callbacks.LambdaCallback(
+                on_epoch_end = lambda epoch, logs: self._logger.info(f'\nEpoch {epoch + 1}: loss: {logs["loss"]} - accuracy: {logs["accuracy"]} - val_loss: {logs["val_loss"]} - val_accuracy: {logs["val_accuracy"]}')
+        )
 
         # train dataset
         dataset_train = datasets[0]
@@ -150,9 +159,9 @@ class GCN_QA(object):
         dataset_length_val = len(dataset_val['text'])
         validation_steps_per_epoch = dataset_length_val // batch_size
 
-        _logger.info('')
-        _logger.info('=== Training settings ===')
-        _logger.info(f'epochs={epochs}, batch_size={batch_size}, dataset_length_train={dataset_length_train}, dataset_length_val={dataset_length_val}, steps_per_epoch={steps_per_epoch}')
+        self._logger.info('')
+        self._logger.info('=== Training settings ===')
+        self._logger.info(f'epochs={epochs}, batch_size={batch_size}, dataset_length_train={dataset_length_train}, dataset_length_val={dataset_length_val}, steps_per_epoch={steps_per_epoch}')
 
         history = self._model.fit(
                 self.__generate_data(dataset_train, batch_size),
@@ -160,7 +169,7 @@ class GCN_QA(object):
                 steps_per_epoch=steps_per_epoch,
                 validation_data=self.__generate_data(dataset_val, batch_size),
                 validation_steps=validation_steps_per_epoch,
-                callbacks=[save_model_callback]
+                callbacks=[save_model_callback, logging_callback]
         )
         return history
 
@@ -195,8 +204,9 @@ class GCN_QA(object):
         saver = self._model.save(filename)
 
     @classmethod
-    def load(self, filename, dropout=1.0):
-        model = GCN_QA(dropout)
+    def load(self, filename, config, dropout=1.0):
+        model = GCN_QA(config, dropout)
         #model._model.load_weights(filename)
         model._model = tf.keras.models.load_model(filename)
+        model._config = config
         return model

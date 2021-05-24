@@ -1,3 +1,4 @@
+import json
 import logging
 import numpy as np
 import os
@@ -309,3 +310,25 @@ def get_wikidata_id_of_item_different_from_given_one(item_str,
     if not items:
         raise RuntimeWarning('No negative items!')
     return random.choice(items)
+
+def load_train_datasets(config, dataset_size, use_bert, use_pbg):
+    # train dataset
+    _logger.info("=== Load training dataset ===")
+    with open(config.get_dataset('train', dataset_size), encoding='utf8') as f:
+        json_data_train = json.load(f)
+    data_train = get_json_data(json_data_train, use_bert, use_pbg)
+
+    # validation dataset
+    _logger.info("=== Load validation dataset ===")
+    with open(config.get_dataset('dev', dataset_size), encoding='utf8') as f:
+        json_data_val = json.load(f)
+    data_val = get_json_data(json_data_val, use_bert, use_pbg)
+
+    return [data_train, data_val]
+
+def load_test_dataset(config, dataset_size, use_bert, use_pbg):
+    _logger.info("=== Load test dataset ===")
+    with open(config.get_dataset('test', dataset_size), encoding='utf8') as f:
+        json_data_val = json.load(f)
+    data_test = get_json_data(json_data_val, use_bert, use_pbg)
+    return data_test

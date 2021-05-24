@@ -1,49 +1,23 @@
-import datetime
 import logging
-import os
-import json
-import numpy as np
 
 from wikidata_query.gcn_qa_model import GCN_QA
-from wikidata_query.read_data import get_json_data
-from wikidata_query.utils import get_words, infer_vector_from_word
+from wikidata_query.read_data import load_train_datasets
+from wikidata_query.utils import log_experiment_settings
+from wikidata_query.config import Config
 
-dirs = {
-    'logging' : os.path.join(os.getcwd(), 'log'),
-    'models' : os.path.join(os.getcwd(), 'data', 'models'),
-    'datasets' : os.path.join(os.getcwd(), '..', 'dataset')
+
+_settings = {
+        'model_name' : 'model-20210522-1',
+        'epochs' : 3,
+        'dataset_size' : 'sample',
+        'batch_size' : 32,
+        'dropout' : 1.0
     }
 
-# Create directories
-for path in dirs.values():
-    if not os.path.exists(path):
-        print(f'Create directory {path}')
-        os.makedirs(path)
+_config = Config(_settings['model_name'], is_test=False)
 
-datasets = {
-    #'train' : os.path.join(dirs['datasets'], 'wikidata-disambig-train.json'),
-    #'train' : os.path.join(dirs['datasets'], 'wikidata-disambig-train.medium.json'),
-    'train' : os.path.join(dirs['datasets'], 'wikidata-disambig-train.sample.json'),
-    #'val' : os.path.join(dirs['datasets'], 'wikidata-disambig-dev.json')
-    'val' : os.path.join(dirs['datasets'], 'wikidata-disambig-dev.sample.json')
-    }
-
-_model_name = 'model-20210521-1'
-_epochs = 3
-_batch_size = 32
-_dropout = 1.0
-
-_is_relevant = [.0, 1.]
-_is_not_relevant = [1., 0.]
-
-# Logging
-log_level = logging.INFO
-log_timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-log_filename = f'{log_timestamp}-{_model_name}-train'
-log_path = os.path.join(dirs['logging'], f'{log_filename}.log')
-log_format = "%(asctime)s: %(levelname)-1.1s %(name)s:%(lineno)d] %(message)s"
-logging.basicConfig(level=log_level, format=log_format,
-        handlers=[logging.FileHandler(log_path), logging.StreamHandler()])
+logging.basicConfig(level=_config.log_level, format=_config.log_format,
+        handlers=[logging.FileHandler(_config.log_path), logging.StreamHandler()])
 _logger = logging.getLogger()
 
 
@@ -65,22 +39,11 @@ def train(data, model, saving_dir, name_prefix, epochs=20, batch_size=32):
 
 
 if __name__ == '__main__':
-    # train dataset
-    _logger.info("=== Load training dataset ===")
-    with open(datasets['train'], encoding='utf8') as f:
-        json_data_train = json.load(f)
-    data_train = get_json_data(json_data_train, use_bert=True, use_pbg=False)
-    # validation dataset
-    _logger.info("=== Load validation dataset ===")
-    with open(datasets['val'], encoding='utf8') as f:
-        json_data_val = json.load(f)
-    data_val = get_json_data(json_data_val, use_bert=True, use_pbg=False)
-    data = [data_train, data_val]
-
-    # train
-    model = GCN_QA(dropout=_dropout)
-    train(data, model, dirs['models'],
-            name_prefix=_model_name,
-            epochs=_epochs,
-            batch_size=_batch_size
+    log_experiment_settings(settings=_settings, is_test=False)
+    data = load_train_datasets(_config, _settings['dataset_size'], use_bert=True, use_pbg=False)
+    model = GCN_QA(_config, _settings['dropout'])
+    train(data, model, _config.dirs['models'],
+            name_prefix=_settings['model_name'],
+            epochs=_settings['epochs'],
+            batch_size=_settings['batch_size']
     )
