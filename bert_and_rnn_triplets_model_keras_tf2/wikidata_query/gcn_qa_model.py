@@ -83,7 +83,9 @@ class GCN_QA(object):
         # TODO Try different learning rate
         optimizer = tf.keras.optimizers.Adam(learning_rate=1e-4)
 
-        self._model = tf.keras.models.Model(inputs=[input_question, input_attention_mask, input_sf_mask, input_nodes], outputs=mlp_outputs)
+        self._model = tf.keras.models.Model(
+                inputs=[input_question, input_attention_mask, input_sf_mask, input_nodes],
+                outputs=mlp_outputs)
         self._model.get_layer('distilbert').trainable = False # make BERT layers untrainable
         self._model.compile(optimizer=optimizer, loss="binary_crossentropy", metrics=["accuracy"])
         #self._model.summary()

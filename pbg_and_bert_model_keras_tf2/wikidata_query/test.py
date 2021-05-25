@@ -8,9 +8,9 @@ from wikidata_query.config import Config
 
 
 _settings = {
-        'model_name' : 'model-20210522-1',
-        'epochs' : 3,
-        'dataset_size' : 'sample'
+        'model_name' : 'model-20210525-2',
+        'epochs' : 20,
+        'dataset_size' : 'full'
     }
 
 _config = Config(_settings['model_name'], is_test=True)
@@ -67,6 +67,7 @@ def test(data, model):
 
 
 if __name__ == '__main__':
+    log_experiment_settings(settings=_settings, is_test=True)
     data = load_test_dataset(_config, _settings['dataset_size'], use_bert=True, use_pbg=True)
     for epoch in range(1, _settings['epochs'] + 1):
         _logger.info('')

@@ -267,7 +267,7 @@ def get_json_data(json_data, use_bert=False, use_pbg=False):
     count_item = 0
     for json_item in json_data:
         count_item += 1
-        _logger.info(f'Item {count_item}/{count_all}')
+        _logger.debug(f'Item {count_item}/{count_all}')
         try:
             text = json_item['text']
             item = json_item['string']
@@ -282,7 +282,7 @@ def get_json_data(json_data, use_bert=False, use_pbg=False):
             text_item_graph_dict['answer'] = _is_not_relevant
             data.append(text_item_graph_dict)
         except Exception as e:
-            _logger.warning(str(e))
+            _logger.info(f'Item {count_item}: {str(e)}')
     return data
 
 

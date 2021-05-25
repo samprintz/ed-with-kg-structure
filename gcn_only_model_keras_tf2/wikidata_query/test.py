@@ -68,6 +68,7 @@ def test(data, model):
 
 
 if __name__ == '__main__':
+    log_experiment_settings(settings=_settings, is_test=True)
     data = load_test_dataset(_config, _settings['dataset_size'], use_bert=False, use_pbg=False)
     for epoch in range(1, _settings['epochs'] + 1):
         _logger.info('')
