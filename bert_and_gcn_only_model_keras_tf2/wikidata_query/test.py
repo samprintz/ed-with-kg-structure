@@ -8,7 +8,7 @@ from wikidata_query.config import Config
 
 
 _settings = {
-        'model_name' : 'model-20210522-1',
+        'model_name' : 'model-20210525-1',
         'epochs' : 3,
         'dataset_size' : 'sample'
     }
@@ -40,7 +40,7 @@ def test(data, model):
         question_vectors = item['question_vectors']
         question_mask = item['question_mask']
 #        try:
-        prediction = model.predict(A_bw, node_vectors, types, question_vectors, question_mask)
+        prediction = model.predict(text, A_bw, node_vectors, types, question_vectors, question_mask)
         if prediction == expected and expected == _config.is_relevant:
             true_positives += 1
             _logger.info(f'Item {str(count)}/{str(count_all)}: [TP] Predicted {wikidata_id} consistent for "{mention}" in "{text}"')
@@ -68,7 +68,8 @@ def test(data, model):
 
 
 if __name__ == '__main__':
-    data = load_test_dataset(_config, _settings['dataset_size'], use_bert=False, use_pbg=False)
+    log_experiment_settings(settings=_settings, is_test=True)
+    data = load_test_dataset(_config, _settings['dataset_size'], use_bert=True, use_pbg=False)
     for epoch in range(1, _settings['epochs'] + 1):
         _logger.info('')
         _logger.info(f'--- Epoch {str(epoch)}/{str(_settings["epochs"])} ---')
