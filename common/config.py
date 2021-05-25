@@ -39,7 +39,7 @@ class Config:
 
 
     def get_dataset(self, train, part=None):
-        if not part:
+        if not part or part == 'full':
             return os.path.join(self.dirs['datasets'], f'wikidata-disambig-{train}.json')
         else:
             return os.path.join(self.dirs['datasets'], f'wikidata-disambig-{train}.{part}.json')
