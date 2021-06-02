@@ -7,7 +7,7 @@ import sys
 import tensorflow as tf
 import numpy as np
 from tensorflow.keras.layers import Input, Dense, GRU, LSTM, Bidirectional, Activation, Dropout, Concatenate, BatchNormalization, Masking
-from spektral.layers import GCNConv
+from spektral.layers import GATConv
 from transformers import DistilBertTokenizer, TFDistilBertForSequenceClassification, DistilBertConfig, TFDistilBertModel
 
 gpu_devices = tf.config.experimental.list_physical_devices('GPU')
@@ -32,8 +32,8 @@ class GCN_QA(object):
     _hidden_layer1_size = 250
     _hidden_layer2_size = 250
     _output_size = 2
-    _gcn_channels = _hidden_layer1_size
-    _gcn_dropout = 0.5 # TODO
+    _gat_channels = _hidden_layer1_size
+    _gat_dropout = 0.5 # TODO
 
     _distil_bert = 'distilbert-base-uncased'
     _memory_dim = 100
@@ -71,7 +71,7 @@ class GCN_QA(object):
         question_outputs = Dense(self._question_vector_size)(question_outputs)
         question_outputs = Activation('relu')(question_outputs)
 
-        # Part II: Entity graph node -> GCN
+        # Part II: Entity graph node -> GAT
         input_nodes = Input(shape=(None, self._nodes_vocab_size), name='node_vectors')
         input_types = Input(shape=(None, self._types_size), name='node_type')
         input_atilde = Input(shape=(None, None), name='atilde_fw')
@@ -82,25 +82,25 @@ class GCN_QA(object):
         types_outputs = Dense(self._types_proj_size)(input_types)
         types_outputs = Activation('relu')(types_outputs)
 
-        concatenated_for_gcn = Concatenate(axis=2)([nodes_outputs, types_outputs])
-        concatenated_for_gcn = Dense(self._internal_proj_size)(concatenated_for_gcn)
-        concatenated_for_gcn = Activation('relu')(concatenated_for_gcn)
+        concatenated_for_gat = Concatenate(axis=2)([nodes_outputs, types_outputs])
+        concatenated_for_gat = Dense(self._internal_proj_size)(concatenated_for_gat)
+        concatenated_for_gat = Activation('relu')(concatenated_for_gat)
 
-        gcn_output = GCNConv(self._gcn_channels, activation='relu',
-                dropout_rate=self._gcn_dropout)([concatenated_for_gcn, input_atilde])
-        gcn_output = Dropout(self._gcn_dropout)(gcn_output)
-        gcn_output = GCNConv(self._gcn_channels, activation='relu',
-                dropout_rate=self._gcn_dropout)([gcn_output, input_atilde])
-        gcn_output = Dropout(self._gcn_dropout)(gcn_output)
-        gcn_output = GCNConv(self._gcn_channels, activation='relu',
-                dropout_rate=self._gcn_dropout)([gcn_output, input_atilde])
-        gcn_output = Dropout(self._gcn_dropout)(gcn_output)
-        gcn_output = GCNConv(self._gcn_channels, activation='relu',
-                dropout_rate=self._gcn_dropout)([gcn_output, input_atilde])
-        gcn_output = Dropout(self._gcn_dropout)(gcn_output)
+        gat_output = GATConv(self._gat_channels, activation='relu',
+                dropout_rate=self._gat_dropout)([concatenated_for_gat, input_atilde])
+        gat_output = Dropout(self._gat_dropout)(gat_output)
+        gat_output = GATConv(self._gat_channels, activation='relu',
+                dropout_rate=self._gat_dropout)([gat_output, input_atilde])
+        gat_output = Dropout(self._gat_dropout)(gat_output)
+        gat_output = GATConv(self._gat_channels, activation='relu',
+                dropout_rate=self._gat_dropout)([gat_output, input_atilde])
+        gat_output = Dropout(self._gat_dropout)(gat_output)
+        gat_output = GATConv(self._gat_channels, activation='relu',
+                dropout_rate=self._gat_dropout)([gat_output, input_atilde])
+        gat_output = Dropout(self._gat_dropout)(gat_output)
 
-        gcn_output_transposed = tf.transpose(gcn_output, perm=[1, 0, 2]) # to (n_nodes, batch, n_node_features)
-        first_node = gcn_output_transposed[0] # use only first node
+        gat_output_transposed = tf.transpose(gat_output, perm=[1, 0, 2]) # to (n_nodes, batch, n_node_features)
+        first_node = gat_output_transposed[0] # use only first node
 
         # Part III: Comparator
         # concatenation size = _nodes_vector_size + _question_vector_size
