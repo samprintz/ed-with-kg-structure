@@ -20,7 +20,7 @@ logging.basicConfig(level=_config.log_level, format=_config.log_format,
 _logger = logging.getLogger()
 
 
-def test(data, model):
+def test(data, model, epoch):
     true_positives = 0
     false_positives = 0
     true_negatives = 0
@@ -59,9 +59,9 @@ def test(data, model):
         precision = true_positives / (true_positives + false_positives)
         recall = true_positives / (true_positives + false_negatives)
         f1 = 2 * 1 / (1 / precision + 1 / recall)
-        _logger.info(f'Precision {precision}')
-        _logger.info(f'Recall {recall}')
-        _logger.info(f'F1 {f1}')
+        _logger.info(f'Epoch {epoch}: Precision {precision}')
+        _logger.info(f'Epoch {epoch}: Recall {recall}')
+        _logger.info(f'Epoch {epoch}: F1 {f1}')
     except Exception as e:
         _logger.warning('Cannot compute precision and recall:')
         _logger.warning(str(e))
@@ -75,4 +75,4 @@ if __name__ == '__main__':
         _logger.info(f'--- Epoch {str(epoch)}/{str(_settings["epochs"])} ---')
         model_path = os.path.join(_config.dirs["models"], _settings['model_name'], f'cp-{epoch:04d}.ckpt')
         model = GCN_QA.load(model_path, _config)
-        test(data, model)
+        test(data, model, epoch)

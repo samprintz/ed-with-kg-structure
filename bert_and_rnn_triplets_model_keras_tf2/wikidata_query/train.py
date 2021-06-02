@@ -7,9 +7,9 @@ from wikidata_query.config import Config
 
 
 _settings = {
-        'model_name' : 'model-20210524-1',
+        'model_name' : 'model-20210527-1',
         'epochs' : 60,
-        'dataset_size' : 'medium',
+        'dataset_size' : 'full',
         'batch_size' : 32,
         'dropout' : 1.0
     }

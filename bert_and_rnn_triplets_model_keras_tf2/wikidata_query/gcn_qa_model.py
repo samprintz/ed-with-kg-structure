@@ -108,7 +108,7 @@ class GCN_QA(object):
         while True:
             # get a batch from the shuffled dataset, preprocess it, and give it to the model
             batch = {
-                    'text': [],
+                    'text': [], # required by BERT
                     'question': [],
                     'attention_mask': [],
                     'question_mask': [],

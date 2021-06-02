@@ -7,9 +7,9 @@ from wikidata_query.config import Config
 
 
 _settings = {
-        'model_name' : 'model-20210522-1',
-        'epochs' : 3,
-        'dataset_size' : 'sample',
+        'model_name' : 'model-20210531-1',
+        'epochs' : 60,
+        'dataset_size' : 'full',
         'batch_size' : 1, # TODO allow 32 by using RaggedTensors?
         'dropout' : 1.0
     }

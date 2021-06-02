@@ -124,8 +124,8 @@ class GCN_QA(object):
         return np.asarray(input_ids, dtype='int32'), np.asarray(input_masks, dtype='int32')
 
     def __generate_data(self, dataset, batch_size):
-        dataset.pop('item_vector')
-        # dataset.pop('question_vectors') # TODO required by GCN, GAT
+        dataset.pop('item_vector') # TODO required by no model?
+        # dataset.pop('question_vectors') # required by GRU
 
         # https://stackoverflow.com/questions/46493419/use-a-generator-for-keras-model-fit-generator
         i = 0
