@@ -1,114 +1,49 @@
 import logging
-import os
-import json
-import numpy as np
 
 from wikidata_query.gcn_qa_model import GCN_QA
-from wikidata_query.read_data import get_json_data
-from wikidata_query.utils import bin_data_into_buckets, get_words, infer_vector_from_word
-
-_path = os.path.dirname(__file__)
-_saving_dir = os.path.join(_path, '../data/')
-_bucket_size = 10
-_minimum_trace = 10
-_fast_mode = 3
-
-_logger = logging.getLogger(__name__)
-_logging_level = logging.INFO
-logging.basicConfig(level=_logging_level, format="%(asctime)s: %(levelname)-1.1s %(name)s] %(message)s")
-
-_logger.info(f'logging_level={_logging_level}')
-_logger.info(f'fast_mode={_logging_level}')
-
-if _fast_mode == 0:
-    _dataset_path = os.path.join(_path, '../../dataset/wikidata-disambig-train.json')
-elif _fast_mode == 1:
-    _dataset_path = os.path.join(_path, '../../dataset/wikidata-disambig-train.medium.json')
-else:
-    _dataset_path = os.path.join(_path, '../../dataset/wikidata-disambig-train.sample.json')
+from wikidata_query.read_data import load_train_datasets
+from wikidata_query.utils import log_experiment_settings
+from wikidata_query.config import Config
 
 
-def get_answers_and_questions_from_json(filename):
-    questions_and_answers = []
-    dataset_dicts = json.loads(open(filename).read())
-    for item in dataset_dicts:
-        questions_and_answers.append({'question': item['qText'], 'answers': item['answers']})
-    return questions_and_answers
+_settings = {
+        'model_name' : 'model-20210603-1',
+        'epochs' : 3,
+        'dataset_size' : 'sample',
+        'batch_size' : 1, # TODO cf. GCN/GAT
+        'dropout' : 1.0
+    }
+
+_config = Config(_settings['model_name'], is_test=False)
+
+logging.basicConfig(level=_config.log_level, format=_config.log_format,
+        handlers=[logging.FileHandler(_config.log_path), logging.StreamHandler()])
+_logger = logging.getLogger()
 
 
-def find_position_of_best_match(candidate_vectors, answer_vector):
-    old_distance = 10000
-    position = -1
-    for index, candidate in enumerate(candidate_vectors):
-        distance = np.linalg.norm(candidate - answer_vector)
-        if distance < old_distance:
-            position = index
-            old_distance = distance
-    return position
+def train(data, model, saving_dir, name_prefix, epochs=20, batch_size=32):
+    datasets = []
+    for dataset in data:
+        dataset_reshaped = {
+                'text': [item['text'] for item in dataset],
+                'node_vectors': [item['graph']['vectors'] for item in dataset],
+                'item_vector': [item['item_vector'] for item in dataset],
+                'question_vectors': [item['question_vectors'] for item in dataset],
+                'question_mask': [item['question_mask'] for item in dataset],
+                'y': [item['answer'] for item in dataset]
+        }
+        datasets.append(dataset_reshaped)
 
-
-def get_vector_list_from_sentence(model, sentence):
-    words = get_words(sentence)
-    vectors = []
-    for word in words:
-        vectors.append(infer_vector_from_word(model, word))
-    return vectors
-
-
-_is_relevant = [.0, 1.]
-_is_not_relevant = [1., 0.]
-
-
-def train(data, model, saving_dir, name_prefix, epochs=20, bucket_size=10, trace_every=1):
-    import random
-    import sys
-
-    buckets = bin_data_into_buckets(data, bucket_size)
-    losses = []
-    for i in range(1, epochs + 1):
-        random_buckets = sorted(buckets, key=lambda x: random.random())
-        bucket_count = 0
-        item_count = 0
-        item_count_all = sum([len(b) for b in random_buckets])
-        print(f'--------- Epoch {str(i)}/{str(epochs)} ---------')
-        for bucket in random_buckets:
-            bucket_count += 1
-            graph_bucket = []
-            try:
-                for item in bucket:
-                    node_vectors = item['graph']['vectors']
-                    y = item['answer']
-                    item_vector = item['item_vector']
-                    question_vectors = item['question_vectors']
-                    question_mask = item['question_mask']
-                    graph_bucket.append((node_vectors, item_vector, question_vectors, question_mask, y))
-                if len(graph_bucket) > 0:
-                    loss = model.train(graph_bucket, 1)
-                    item_count += len(graph_bucket)
-                    losses.append(loss)
-                    loss = "{:.5f}".format(loss)
-                    avg_loss = "{:.5f}".format(sum(losses)/len(losses))
-                    print(f'Item {item_count}/{item_count_all}, bucket {bucket_count}/{len(random_buckets)} (loss={loss}, avg_loss={avg_loss})', end='\r')
-            except Exception as e:
-                raise e
-                #print(f'Exception caught during training: {str(e)}')
-        print(f'\nAverage loss of epoch {str(i)}: {str(sum(losses)/len(losses))}')
-        if i % trace_every == 0:
-            save_filename = saving_dir + name_prefix + '-' + str(i) + '.tf'
-            sys.stderr.write('Saving into ' + save_filename + '\n')
-            model.save(save_filename)
+    saving_path = f'{saving_dir}/{name_prefix}'
+    model.train(datasets, saving_path, epochs, batch_size)
 
 
 if __name__ == '__main__':
-    with open(_dataset_path, encoding='utf8') as f:
-        json_data = json.load(f)
-    data = get_json_data(json_data)
-    nn_model = GCN_QA(dropout=1.0)
-    train(data,
-          nn_model,
-          _saving_dir,
-          name_prefix='model-20210414-1',
-          epochs=20,
-          bucket_size=10,
-          trace_every=1,
-          )
+    log_experiment_settings(settings=_settings, is_test=False)
+    data = load_train_datasets(_config, _settings['dataset_size'], use_bert=False, use_pbg=False)
+    model = GCN_QA(_config, _settings['dropout'])
+    train(data, model, _config.dirs['models'],
+            name_prefix=_settings['model_name'],
+            epochs=_settings['epochs'],
+            batch_size=_settings['batch_size']
+    )
