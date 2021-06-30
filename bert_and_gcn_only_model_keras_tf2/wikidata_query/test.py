@@ -8,9 +8,11 @@ from wikidata_query.config import Config
 
 
 _settings = {
-        'model_name' : 'model-20210525-1',
+        'model_name' : 'model-20210630-1',
         'epochs' : 3,
-        'dataset_size' : 'sample'
+        'dataset_size' : 'sample',
+        'dropout' : 0.5,
+        'gnn_layers' : 4
     }
 
 _config = Config(_settings['model_name'], is_test=True)
@@ -74,5 +76,6 @@ if __name__ == '__main__':
         _logger.info('')
         _logger.info(f'--- Epoch {str(epoch)}/{str(_settings["epochs"])} ---')
         model_path = os.path.join(_config.dirs["models"], _settings['model_name'], f'cp-{epoch:04d}.ckpt')
-        model = GCN_QA.load(model_path, _config)
+        model = GCN_QA.load(model_path, _config,
+                dropout=_settings['dropout'], gnn_layers=_settings['gnn_layers'])
         test(data, model, epoch)

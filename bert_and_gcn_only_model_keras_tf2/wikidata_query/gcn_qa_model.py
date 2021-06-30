@@ -33,16 +33,18 @@ class GCN_QA(object):
     _hidden_layer2_size = 250
     _output_size = 2
     _gcn_channels = _hidden_layer1_size
-    _gcn_dropout = 0.5 # TODO
+    _gcn_dropout = 0.5
 
     _distil_bert = 'distilbert-base-uncased'
     _memory_dim = 100
     _stack_dimension = 2
     _mask_value = -10.0
 
-    def __init__(self, config, dropout=1.0):
+    def __init__(self, config, dropout, gnn_layers):
         tf.compat.v1.reset_default_graph()
         self._config = config
+        self._dropout = dropout
+        self._gnn_layers = gnn_layers
 
         # Logging
         self._logger = logging.getLogger(__name__) # own logger
@@ -86,18 +88,11 @@ class GCN_QA(object):
         concatenated_for_gcn = Dense(self._internal_proj_size)(concatenated_for_gcn)
         concatenated_for_gcn = Activation('relu')(concatenated_for_gcn)
 
-        gcn_output = GCNConv(self._gcn_channels, activation='relu',
-                dropout_rate=self._gcn_dropout)([concatenated_for_gcn, input_atilde])
-        gcn_output = Dropout(self._gcn_dropout)(gcn_output)
-        gcn_output = GCNConv(self._gcn_channels, activation='relu',
-                dropout_rate=self._gcn_dropout)([gcn_output, input_atilde])
-        gcn_output = Dropout(self._gcn_dropout)(gcn_output)
-        gcn_output = GCNConv(self._gcn_channels, activation='relu',
-                dropout_rate=self._gcn_dropout)([gcn_output, input_atilde])
-        gcn_output = Dropout(self._gcn_dropout)(gcn_output)
-        gcn_output = GCNConv(self._gcn_channels, activation='relu',
-                dropout_rate=self._gcn_dropout)([gcn_output, input_atilde])
-        gcn_output = Dropout(self._gcn_dropout)(gcn_output)
+        gcn_output = concatenated_for_gcn # rename variable for the following loop
+        for i in range(self._gnn_layers):
+            gcn_output = GCNConv(self._gcn_channels, activation='relu',
+                    dropout_rate=self._gcn_dropout)([gcn_output, input_atilde])
+            gcn_output = Dropout(self._gcn_dropout)(gcn_output)
 
         gcn_output_transposed = tf.transpose(gcn_output, perm=[1, 0, 2]) # to (n_nodes, batch, n_node_features)
         first_node = gcn_output_transposed[0] # use only first node
@@ -119,6 +114,7 @@ class GCN_QA(object):
                 outputs=mlp_outputs)
         self._model.get_layer('distilbert').trainable = False # make BERT layers untrainable
         self._model.compile(optimizer=optimizer, loss="binary_crossentropy", metrics=["accuracy"])
+        self._model.summary()
 
     def _add_identity(self, A):
         num_nodes = A.shape[0]
@@ -268,8 +264,8 @@ class GCN_QA(object):
         #saver = self._model.save(filename)
 
     @classmethod
-    def load(self, filename, config, dropout=1.0):
-        model = GCN_QA(config, dropout)
+    def load(self, filename, config, dropout, gnn_layers):
+        model = GCN_QA(config, dropout, gnn_layers)
         model._model.load_weights(filename)
         #model._model = tf.keras.models.load_model(filename)
         model._config = config

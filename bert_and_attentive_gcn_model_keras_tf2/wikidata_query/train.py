@@ -7,11 +7,12 @@ from wikidata_query.config import Config
 
 
 _settings = {
-        'model_name' : 'model-20210527-1',
+        'model_name' : 'model-20210630-1',
         'epochs' : 3,
         'dataset_size' : 'sample',
         'batch_size' : 1, # TODO allow 32 by using RaggedTensors?
-        'dropout' : 1.0
+        'dropout' : 0.5,
+        'gnn_layers' : 4
     }
 
 _config = Config(_settings['model_name'], is_test=False)
@@ -43,7 +44,7 @@ def train(data, model, saving_dir, name_prefix, epochs=20, batch_size=32):
 if __name__ == '__main__':
     log_experiment_settings(settings=_settings, is_test=False)
     data = load_train_datasets(_config, _settings['dataset_size'], use_bert=True, use_pbg=False)
-    model = GCN_QA(_config, _settings['dropout'])
+    model = GCN_QA(_config, _settings['dropout'], _settings['gnn_layers'])
     train(data, model, _config.dirs['models'],
             name_prefix=_settings['model_name'],
             epochs=_settings['epochs'],
