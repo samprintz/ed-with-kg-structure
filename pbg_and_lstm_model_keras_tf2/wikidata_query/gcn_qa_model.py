@@ -7,7 +7,6 @@ import sys
 import tensorflow as tf
 import numpy as np
 from tensorflow.keras.layers import Input, Dense, GRU, LSTM, Bidirectional, Activation, Dropout, Concatenate, BatchNormalization, Masking
-from transformers import DistilBertTokenizer, TFDistilBertForSequenceClassification, DistilBertConfig, TFDistilBertModel
 
 gpu_devices = tf.config.experimental.list_physical_devices('GPU')
 for gpu in gpu_devices:
@@ -16,20 +15,16 @@ for gpu in gpu_devices:
 
 class GCN_QA(object):
     _max_text_length = 512
-    _nodes_vocab_size = 300 * 3
+    _mask_size = 200
     _item_pbg_vocab_size = 200
     _question_vocab_size = 300
     _nodes_vector_size = 150
     _item_pbg_vector_size = 150
     _question_vector_size = 150
-    _bert_embedding_size = 768
     _hidden_layer1_size = 250
     _hidden_layer2_size = 250
     _output_size = 2
-
-    _distil_bert = 'distilbert-base-uncased'
     _memory_dim = 100
-    _mask_value = -10.0
 
     def __init__(self, config, dropout=1.0):
         tf.compat.v1.reset_default_graph()
@@ -42,32 +37,21 @@ class GCN_QA(object):
         logging.basicConfig(level=self._config.log_level, format=self._config.log_format,
                 handlers=[logging.FileHandler(self._config.log_path), logging.StreamHandler()])
 
-        # Tokenizer
-        self._tokenizer = DistilBertTokenizer.from_pretrained(self._distil_bert, do_lower_case=True,
-                add_special_tokens=True, max_length=self._max_text_length, pad_to_max_length=True)
+        # Part I: Question text sequence -> Bi-GRU
+        fw_gru = GRU(self._memory_dim, return_sequences=True)
+        bw_gru = GRU(self._memory_dim, return_sequences=True, go_backwards=True)
 
-        # Part I: Question text sequence -> BERT
-        config = DistilBertConfig(dropout=0.2, attention_dropout=0.2)
-        config.output_hidden_states = False
-        transformer_model = TFDistilBertModel.from_pretrained(self._distil_bert, config=config)
-
-        input_question = Input(shape=(self._max_text_length,), dtype='int32', name='question')
-        input_attention_mask = Input(shape=(self._max_text_length,), dtype='int32', name='attention_mask')
-        input_sf_mask = Input(shape=(self._max_text_length, self._bert_embedding_size), dtype='float32', name='question_mask')
-
-        embedding_layer = transformer_model.distilbert(input_question, attention_mask=input_attention_mask)[0]
-        #cls_token = embedding_layer[:,0,:]
-        sf_token = tf.math.reduce_mean(tf.math.multiply(embedding_layer, input_sf_mask), axis=1)
-        question_outputs = BatchNormalization()(sf_token)
-        question_outputs = Dense(self._question_vector_size)(question_outputs)
+        input_question_vectors = Input(shape=(None, self._question_vocab_size), name='question_vectors')
+        input_question_masks = Input(shape=(None, self._mask_size), name='question_mask')
+        question_outputs = Bidirectional(layer=fw_gru, backward_layer=bw_gru)(input_question_vectors)
+        question_outputs_masked = tf.math.reduce_mean(tf.math.multiply(input_question_masks, question_outputs), axis=1)
+        question_outputs = Dense(self._question_vector_size)(question_outputs_masked)
         question_outputs = Activation('relu')(question_outputs)
 
         # Part II: Entity -> PyTorch Big Graph embedding
         input_item_pbg = Input(shape=(self._item_pbg_vocab_size), name='item_pbg')
         item_pbg_outputs = Dense(self._item_pbg_vector_size)(input_item_pbg)
         item_pbg_outputs = Activation('relu')(item_pbg_outputs)
-
-        input_nodes = Input(shape=(None, self._nodes_vocab_size), name='node_vectors') # not used
 
         # Part III: Comparator
         # concatenation size = _nodes_vector_size + _question_vector_size
@@ -79,11 +63,11 @@ class GCN_QA(object):
         mlp_outputs = Activation('softmax')(mlp_outputs)
 
         # Compile model
-        # TODO Try different learning rate
         optimizer = tf.keras.optimizers.Adam(learning_rate=1e-4)
 
-        self._model = tf.keras.models.Model(inputs=[input_question, input_attention_mask, input_sf_mask, input_item_pbg, input_nodes], outputs=mlp_outputs)
-        self._model.get_layer('distilbert').trainable = False # make BERT layers untrainable
+        self._model = tf.keras.models.Model(
+                inputs=[input_question_vectors, input_question_masks, input_item_pbg],
+                outputs=mlp_outputs)
         self._model.compile(optimizer=optimizer, loss="binary_crossentropy", metrics=["accuracy"])
         #self._model.summary()
 
@@ -97,19 +81,13 @@ class GCN_QA(object):
         return np.asarray(input_ids, dtype='int32'), np.asarray(input_masks, dtype='int32')
 
     def __generate_data(self, dataset, batch_size):
-        dataset.pop('item_vector')
-        dataset.pop('question_vectors')
-
         # https://stackoverflow.com/questions/46493419/use-a-generator-for-keras-model-fit-generator
         i = 0
         while True:
             # get a batch from the shuffled dataset, preprocess it, and give it to the model
             batch = {
-                    'text': [],
-                    'question': [],
-                    'attention_mask': [],
+                    'question_vectors': [],
                     'question_mask': [],
-                    'node_vectors': [],
                     'item_pbg': [],
                     'y': []
                 }
@@ -118,14 +96,17 @@ class GCN_QA(object):
             for b in range(batch_size):
                 if i == len(dataset['text']): # re-shuffle when processed whole dataset
                     i = 0
-                    lists = list(zip(dataset['text'], dataset['node_vectors'], dataset['question_mask'], dataset['item_pbg'], dataset['y']))
+                    lists = list(zip(
+                            dataset['question_vectors'],
+                            dataset['question_mask'],
+                            dataset['item_pbg'],
+                            dataset['y']))
                     random.shuffle(lists)
-                    dataset['text'], dataset['node_vectors'], dataset['question_mask'], dataset['item_pbg'], dataset['y'] = zip(*lists)
+                    dataset['question_vectors'], dataset['question_mask'], dataset['item_pbg'], dataset['y'] = zip(*lists)
                     #TODO rather stop iteration?
                     # raise StopIteration
                 # add sample
-                batch['text'].append(dataset['text'][i])
-                batch['node_vectors'].append(dataset['node_vectors'][i])
+                batch['question_vectors'].append(dataset['question_vectors'][i])
                 batch['question_mask'].append(dataset['question_mask'][i])
                 batch['item_pbg'].append(dataset['item_pbg'][i])
                 batch['y'].append(dataset['y'][i])
@@ -133,12 +114,12 @@ class GCN_QA(object):
 
             # preprocess batch (array, pad, tokenize)
             X = {}
-            X['node_vectors'] = tf.keras.preprocessing.sequence.pad_sequences(
-                    batch['node_vectors'], value=self._mask_value, padding='post', dtype='float64')
+            #X['question_vectors'] = np.asarray(batch['question_vectors'])
+            #X['question_mask'] = np.asarray(batch['question_mask'])
+            X['question_vectors'] = tf.keras.preprocessing.sequence.pad_sequences(
+                    batch['question_vectors'], maxlen=self._max_text_length, value=0.0)
             X['question_mask'] = tf.keras.preprocessing.sequence.pad_sequences(
                     batch['question_mask'], maxlen=self._max_text_length, value=0.0)
-            X['question'], X['attention_mask'] = self.__tokenize(
-                    batch['text'], self._tokenizer, self._max_text_length)
             X['item_pbg'] = np.asarray(batch['item_pbg'])
             y = np.asarray(batch['y'])
 
@@ -178,9 +159,8 @@ class GCN_QA(object):
     def train(self, datasets, saving_dir, epochs=20, batch_size=32):
         self.__train(datasets, saving_dir, epochs, batch_size)
 
-    def __predict(self, text, node_X, item_vector, item_pbg, question_vectors, question_mask):
-        question, attention_mask = self.__tokenize(text, self._tokenizer, self._max_text_length)
-        output = self._model.predict([question, attention_mask, question_mask, item_pbg, node_X])
+    def __predict(self, item_pbg, question_vectors, question_mask):
+        output = self._model.predict([question_vectors, question_mask, item_pbg])
         return output
 
     def __standardize_item(self, item):
@@ -190,15 +170,11 @@ class GCN_QA(object):
 
     def predict(self, text, node_X, item_vector, item_pbg, question_vectors, question_mask):
         # in contrast to train(), no generator method is required, as the dev set is small enough to fit into memory also with padding
-        text = [text]
-        node_X = np.expand_dims(node_X, axis=0)
-        node_X = tf.keras.preprocessing.sequence.pad_sequences(node_X, maxlen=self._max_text_length, value=self._mask_value, padding='post', dtype='float64')
         item_pbg = np.expand_dims(item_pbg, axis=0)
         question_vectors = np.expand_dims(question_vectors, axis=0)
         question_mask = np.expand_dims(question_mask, axis=0)
-        question_mask = tf.keras.preprocessing.sequence.pad_sequences(question_mask, maxlen=self._max_text_length, value=0.0)
 
-        output = self.__predict(text, node_X, item_vector, item_pbg, question_vectors, question_mask)
+        output = self.__predict(item_pbg, question_vectors, question_mask)
         return self.__standardize_item(output[0])
 
     # Loading and saving functions

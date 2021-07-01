@@ -8,7 +8,7 @@ from wikidata_query.config import Config
 
 
 _settings = {
-        'model_name' : 'model-20210529-1',
+        'model_name' : 'model-20210701-1',
         'epochs' : 60,
         'dataset_size' : 'full'
     }
@@ -68,7 +68,7 @@ def test(data, model, epoch):
 
 if __name__ == '__main__':
     log_experiment_settings(settings=_settings, is_test=True)
-    data = load_test_dataset(_config, _settings['dataset_size'], use_bert=True, use_pbg=True)
+    data = load_test_dataset(_config, _settings['dataset_size'], use_bert=False, use_pbg=True)
     for epoch in range(1, _settings['epochs'] + 1):
         _logger.info('')
         _logger.info(f'--- Epoch {str(epoch)}/{str(_settings["epochs"])} ---')

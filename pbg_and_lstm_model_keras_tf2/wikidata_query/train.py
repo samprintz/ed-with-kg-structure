@@ -7,7 +7,7 @@ from wikidata_query.config import Config
 
 
 _settings = {
-        'model_name' : 'model-20210529-1',
+        'model_name' : 'model-20210701-1',
         'epochs' : 60,
         'dataset_size' : 'full',
         'batch_size' : 32,
@@ -26,11 +26,9 @@ def train(data, model, saving_dir, name_prefix, epochs=20, batch_size=32):
     for dataset in data:
         dataset_reshaped = {
                 'text': [item['text'] for item in dataset],
-                'node_vectors': [item['graph']['vectors'] for item in dataset],
-                'item_vector': [item['item_vector'] for item in dataset],
-                'item_pbg': [item['item_pbg'] for item in dataset],
                 'question_vectors': [item['question_vectors'] for item in dataset],
                 'question_mask': [item['question_mask'] for item in dataset],
+                'item_pbg': [item['item_pbg'] for item in dataset],
                 'y': [item['answer'] for item in dataset]
         }
         datasets.append(dataset_reshaped)
@@ -41,7 +39,7 @@ def train(data, model, saving_dir, name_prefix, epochs=20, batch_size=32):
 
 if __name__ == '__main__':
     log_experiment_settings(settings=_settings, is_test=False)
-    data = load_train_datasets(_config, _settings['dataset_size'], use_bert=True, use_pbg=True)
+    data = load_train_datasets(_config, _settings['dataset_size'], use_bert=False, use_pbg=True)
     model = GCN_QA(_config, _settings['dropout'])
     train(data, model, _config.dirs['models'],
             name_prefix=_settings['model_name'],
