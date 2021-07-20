@@ -1,1 +1,1 @@
-/local/users/uwdlz/cetoli/common/read_data.py
+../../common/read_data.py

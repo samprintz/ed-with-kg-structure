@@ -1,1 +1,1 @@
-/local/users/uwdlz/cetoli/common/glove.py
+../../common/glove.py

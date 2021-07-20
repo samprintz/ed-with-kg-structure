@@ -1,1 +1,1 @@
-/local/users/uwdlz/cetoli/common/config.py
+../../common/config.py

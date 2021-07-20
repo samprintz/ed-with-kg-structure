@@ -1,1 +1,1 @@
-/local/users/uwdlz/cetoli/common/wikidata_items.py
+../../common/wikidata_items.py
