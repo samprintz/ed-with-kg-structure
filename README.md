@@ -1,73 +1,56 @@
-Code and Dataset for Named Entity Disambiguation using Deep Learning on Graphs
-==============================================================================
+# Entity Disambiguation with Knowledge Graph Structure
 
-This repository contains the code and dataset for the paper "Named Entity Disambiguation using Deep Learning on Graphs". The full paper can be found [here](https://arxiv.org/pdf/1810.09164.pdf).
+This are four entity disambiguation models incorporating different levels of topological graph structure from Wikidata into the entity embeddings.
+For each model there is a version with BERT and a version with a Bi-GRU as mention encoder.
 
+## Installation
 
-Installation
-------------
-The main requirements are installed with:
+1. Create virtual environment
 
 ```bash
-virtualenv --python=/usr/bin/python3 .env
-source .env/bin/activate
+python -m venv ve
+source ./ve/bin/activate
 pip install -r requirements.txt
 ```
 
-Download the glove vector files
+2. Download mapping of Wikidata nodes from [GitHub](https://github.com/ContextScout/ned-graphs/tree/master/data) and extract it to <tt>./data</tt>:
 
 ```bash
-cd data
+bunzip2 x*
+cat x* > wikidata_items.csv
+```
+
+3. Download Wikidata-Disamb dataset from [GitHub](https://github.com/ContextScout/ned-graphs/tree/master/dataset) and copy it to <tt>./data/wikidata_disamb</tt>
+
+4. Download GloVe to <tt>./data/glove</tt>
+
+```bash
 wget http://nlp.stanford.edu/data/glove.840B.300d.zip
 unzip glove.840B.300d.zip
 echo "2196017 300" | cat - glove.840B.300d.txt > glove_2.2M.txt
-cd ..
 ```
 
-One must also unzip the mapping of the wikidata nodes
+5. Download PyTorch-BigGraph embeddings to <tt>./data/pbg</tt>
 
 ```bash
-cd data
-bunzip2 x*
-cat x* > wikidata_items.csv
-cd ..
+wget https://dl.fbaipublicfiles.com/torchbiggraph/wikidata_translation_v1_names.json.gz
+gunzip wikidata_translation_v1_names.json.gz
+wget https://dl.fbaipublicfiles.com/torchbiggraph/wikidata_translation_v1_vectors.npy.gz
+gunzip wikidata_translation_v1_vectors.json.gz
 ```
 
+## Train and test models
 
-Running the models
-------------------
-
-In order to train the system
+To train a model change to the directory of the model and execute <tt>train.py</tt>
 
 ```bash
-cd <MODEL_NAME>
+cd ./MODEL_NAME
 python -m wikidata_query.train
 ```
 
-Similarly for testing
+To test a model, execute <tt>test.py</tt>
+
 ```bash
-cd <MODEL_NAME>
+cd ./MODEL_NAME
 python -m wikidata_query.test
-```
-
-
-Citing the paper
-----------------
-```code
-
-@ARTICLE{2018arXiv181009164C,
-   author = {{Cetoli}, A. and {Akbari}, M. and {Bragaglia}, S. and {O'Harney}, A.~D. and 
-	{Sloan}, M.},
-    title = "{Named Entity Disambiguation using Deep Learning on Graphs}",
-  journal = {ArXiv e-prints},
-archivePrefix = "arXiv",
-   eprint = {1810.09164},
- primaryClass = "cs.CL",
- keywords = {Computer Science - Computation and Language},
-     year = 2018,
-    month = oct,
-   adsurl = {http://adsabs.harvard.edu/abs/2018arXiv181009164C},
-  adsnote = {Provided by the SAO/NASA Astrophysics Data System}
-}
-
 ```
