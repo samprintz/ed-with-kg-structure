@@ -1,1 +1,1 @@
-../../gcn_only_model_keras_tf2/wikidata_query/sentence_processor.py
+../../gru_gcn/wikidata_query/sentence_processor.py

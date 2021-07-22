@@ -1,1 +1,1 @@
-../../pbg_and_lstm_model_keras_tf2/wikidata_query/graphs.py
+../../gru_pbg/wikidata_query/graphs.py

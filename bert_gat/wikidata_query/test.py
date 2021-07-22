@@ -1,1 +1,1 @@
-../../bert_and_gcn_only_model_keras_tf2/wikidata_query/test.py
+../../bert_gcn/wikidata_query/test.py

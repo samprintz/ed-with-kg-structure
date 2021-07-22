@@ -1,1 +1,1 @@
-../../pbg_and_lstm_model_keras_tf2/wikidata_query/sentence_processor.py
+../../gru_pbg/wikidata_query/sentence_processor.py

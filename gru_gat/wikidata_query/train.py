@@ -1,1 +1,1 @@
-../../gcn_only_model_keras_tf2/wikidata_query/train.py
+../../gru_gcn/wikidata_query/train.py
