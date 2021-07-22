@@ -1,5 +1,4 @@
 data/
-dataset/
 __pycache__/
 train/
 *log.txt
