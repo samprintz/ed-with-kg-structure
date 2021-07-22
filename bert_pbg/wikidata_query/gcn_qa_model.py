@@ -79,7 +79,6 @@ class GCN_QA(object):
         mlp_outputs = Activation('softmax')(mlp_outputs)
 
         # Compile model
-        # TODO Try different learning rate
         optimizer = tf.keras.optimizers.Adam(learning_rate=1e-4)
 
         self._model = tf.keras.models.Model(inputs=[input_question, input_attention_mask, input_sf_mask, input_item_pbg, input_nodes], outputs=mlp_outputs)
@@ -121,8 +120,6 @@ class GCN_QA(object):
                     lists = list(zip(dataset['text'], dataset['node_vectors'], dataset['question_mask'], dataset['item_pbg'], dataset['y']))
                     random.shuffle(lists)
                     dataset['text'], dataset['node_vectors'], dataset['question_mask'], dataset['item_pbg'], dataset['y'] = zip(*lists)
-                    #TODO rather stop iteration?
-                    # raise StopIteration
                 # add sample
                 batch['text'].append(dataset['text'][i])
                 batch['node_vectors'].append(dataset['node_vectors'][i])

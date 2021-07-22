@@ -103,8 +103,6 @@ class GCN_QA(object):
                             dataset['y']))
                     random.shuffle(lists)
                     dataset['question_vectors'], dataset['question_mask'], dataset['item_pbg'], dataset['y'] = zip(*lists)
-                    #TODO rather stop iteration?
-                    # raise StopIteration
                 # add sample
                 batch['question_vectors'].append(dataset['question_vectors'][i])
                 batch['question_mask'].append(dataset['question_mask'][i])

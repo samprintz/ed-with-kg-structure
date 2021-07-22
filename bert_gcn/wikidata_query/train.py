@@ -10,7 +10,7 @@ _settings = {
         'model_name' : 'model-20210630-1',
         'epochs' : 3,
         'dataset_size' : 'sample',
-        'batch_size' : 1, # TODO allow 32 by using RaggedTensors?
+        'batch_size' : 1,
         'dropout' : 0.5,
         'gnn_layers' : 4
     }
@@ -29,8 +29,8 @@ def train(data, model, saving_dir, name_prefix, epochs=20, batch_size=32):
                 'text': [item['text'] for item in dataset],
                 'node_vectors': [item['graph']['vectors'] for item in dataset],
                 'item_vector': [item['item_vector'] for item in dataset],
-                'node_type': [item['graph']['types'] for item in dataset], # TODO only GCN, GAT
-                'A_fw': [item['graph']['A_bw'] for item in dataset], # TODO only GCN, GAT
+                'node_type': [item['graph']['types'] for item in dataset],
+                'A_fw': [item['graph']['A_bw'] for item in dataset],
                 'question_vectors': [item['question_vectors'] for item in dataset],
                 'question_mask': [item['question_mask'] for item in dataset],
                 'y': [item['answer'] for item in dataset]

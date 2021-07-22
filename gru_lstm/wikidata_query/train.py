@@ -10,7 +10,7 @@ _settings = {
         'model_name' : 'model-20210603-1',
         'epochs' : 3,
         'dataset_size' : 'sample',
-        'batch_size' : 1, # TODO cf. GCN/GAT
+        'batch_size' : 1,
         'dropout' : 1.0
     }
 

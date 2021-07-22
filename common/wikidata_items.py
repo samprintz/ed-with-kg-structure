@@ -77,7 +77,6 @@ class WikidataItems:
             item_name = cache.readline().strip()
         if not item_name: # empty string
             self._logger.debug(f'Read empty string from cache for "{item_id}"')
-            # TODO Add first the empty string to memory cache, then raise exception
             raise Exception(f'"{item_id}" is not a named Wikidata item') # exception leads to passing this item_id/word
         else:
             self._logger.debug(f'Read name of "{item_id}" from cache')

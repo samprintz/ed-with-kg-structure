@@ -31,7 +31,7 @@ class GCN_QA(object):
     _hidden_layer2_size = 250
     _output_size = 2
     _gcn_channels = _hidden_layer1_size
-    _gcn_dropout = 0.5 # TODO
+    _gcn_dropout = 0.5
 
     _memory_dim = 100
     _stack_dimension = 2
@@ -55,7 +55,7 @@ class GCN_QA(object):
         fw_gru = GRU(self._memory_dim, return_sequences=True)
         bw_gru = GRU(self._memory_dim, return_sequences=True, go_backwards=True)
 
-        #question_inputs = Input(shape=(None, self._question_vocab_size), name='question') # TODO required by BERT
+        #question_inputs = Input(shape=(None, self._question_vocab_size), name='question')
         question_inputs = Input(shape=(None, self._question_vocab_size), name='question_vectors')
         question_mask_inputs = Input(shape=(None, self._mask_size), name='question_mask')
         question_outputs = Bidirectional(layer=fw_gru, backward_layer=bw_gru)(question_inputs)
@@ -120,7 +120,7 @@ class GCN_QA(object):
         return np.asarray(input_ids, dtype='int32'), np.asarray(input_masks, dtype='int32')
 
     def __generate_data(self, dataset, batch_size):
-        dataset.pop('item_vector') # TODO required by no model?
+        dataset.pop('item_vector')
         # dataset.pop('question_vectors') # required by GRU
 
         # https://stackoverflow.com/questions/46493419/use-a-generator-for-keras-model-fit-generator
@@ -129,9 +129,9 @@ class GCN_QA(object):
             # get a batch from the shuffled dataset, preprocess it, and give it to the model
             batch = {
                     'text': [],
-                    #'question': [], # TODO required by BERT
-                    #'attention_mask': [], # TODO required by BERT
-                    'question_vectors': [], # TODO required by GRU
+                    #'question': [],
+                    #'attention_mask': [],
+                    'question_vectors': [],
                     'question_mask': [],
                     'node_vectors': [],
                     'node_type': [], # required by GCN, GAT
@@ -153,8 +153,6 @@ class GCN_QA(object):
                             dataset['y']))
                     random.shuffle(lists)
                     dataset['text'], dataset['question_vectors'], dataset['question_mask'], dataset['node_vectors'], dataset['node_type'], dataset['A_fw'], dataset['y'] = zip(*lists)
-                    #TODO rather stop iteration?
-                    # raise StopIteration
                 # add sample
                 batch['text'].append(dataset['text'][i])
                 batch['question_vectors'].append(dataset['question_vectors'][i])
@@ -177,7 +175,7 @@ class GCN_QA(object):
             #X['node_vectors'] = tf.keras.preprocessing.sequence.pad_sequences(
             #        batch['node_vectors'], value=self._mask_value, padding='post', dtype='float64')
             X['node_type'] = np.asarray(batch['node_type'])
-            #X['question'], X['attention_mask'] = self.__tokenize( # TODO tokenization required by BERT
+            #X['question'], X['attention_mask'] = self.__tokenize(
             #        batch['text'], self._tokenizer, self._max_text_length)
             X['atilde_fw'] = np.asarray([self._add_identity(item) for item in batch['A_fw']])
             y = np.asarray(batch['y'])
@@ -245,7 +243,6 @@ class GCN_QA(object):
 
     # Loading and saving functions
 
-    # TODO Not used anymore (?) only the save_model_callback above
     def save(self, filename):
         saver = self._model.save_weights(filename)
         #saver = self._model.save(filename)

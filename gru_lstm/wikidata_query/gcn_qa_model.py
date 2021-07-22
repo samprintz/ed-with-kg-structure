@@ -82,7 +82,7 @@ class GCN_QA(object):
         self._model.compile(optimizer=optimizer, loss="binary_crossentropy", metrics=["accuracy"])
 
     def __generate_data(self, dataset, batch_size):
-        dataset.pop('item_vector') # TODO required by no model?
+        dataset.pop('item_vector')
         #dataset.pop('question_vectors') # required by GRU
 
         # https://stackoverflow.com/questions/46493419/use-a-generator-for-keras-model-fit-generator
@@ -109,8 +109,6 @@ class GCN_QA(object):
                             dataset['y']))
                     random.shuffle(lists)
                     dataset['text'], dataset['question_vectors'], dataset['question_mask'], dataset['node_vectors'], dataset['y'] = zip(*lists)
-                    #TODO rather stop iteration?
-                    # raise StopIteration
                 # add sample
                 batch['text'].append(dataset['text'][i])
                 batch['question_vectors'].append(dataset['question_vectors'][i])
@@ -149,8 +147,6 @@ class GCN_QA(object):
         self._logger.info('=== Training settings ===')
         self._logger.info(f'epochs={epochs}, batch_size={batch_size}, dataset_length_train={dataset_length_train}, dataset_length_val={dataset_length_val}, steps_per_epoch={steps_per_epoch}')
 
-        #TODO use custom fit method
-        # https://www.tensorflow.org/guide/keras/customizing_what_happens_in_fit
         history = self._model.fit(
                 self.__generate_data(dataset_train, batch_size),
                 epochs = epochs,
