@@ -2,8 +2,10 @@
 
 This are four entity disambiguation models incorporating different levels of topological graph structure from Wikidata into the entity embeddings.
 For each model there is a version with BERT and a version with a Bi-GRU as mention encoder.
+There is one folder for each model named with <tt>&lt;MENTION ENCODER&gt;-&lt;ENTITY ENCODER&gt;</tt>.
 
-These models extends the work of Cetoli et al. (2019) ([GitHub](https://github.com/ContextScout/ned-graphs), [paper](https://arxiv.org/pdf/1810.09164.pdf)).
+These models extend the work of Cetoli et al. (2019) ([GitHub](https://github.com/ContextScout/ned-graphs), [paper](https://arxiv.org/pdf/1810.09164.pdf)).
+Their folders have the prefix <tt>cetoli\_</tt>.
 
 ## Installation
 
